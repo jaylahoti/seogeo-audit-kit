@@ -99,10 +99,10 @@ export default function Home() {
             <span className="pill sev-low">Open source · MIT</span>
           </div>
           <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl">
-            SEO and GEO for 10,000 pages, by checking their 6 templates.
+            Fix 10,000 pages by fixing 6 templates.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-[var(--muted)]">
-            One tool for technical SEO, AI readiness, search data and AI citations — reported per template, so every fix tells you how many pages it covers.
+            SEO and GEO audits for programmatic sites: rank on Google and get cited by ChatGPT, Perplexity and Claude — reported per template, so every fix shows how many pages it covers.
           </p>
           <div className="mt-8 max-w-xl"><AuditForm /></div>
           <p className="mt-3 text-xs text-[var(--faint)]">3 free audits a day · about $0.11 each, paid by us · no sign-up</p>

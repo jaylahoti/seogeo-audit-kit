@@ -9,7 +9,7 @@ const DESCRIPTION = "Open-source SEO and GEO (AI search) audits for programmatic
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: "SEOGEO Audit Kit — SEO and GEO audits per template", template: "%s · SEOGEO Audit Kit" },
+  title: { default: "SEOGEO Audit Kit — fix 10,000 pages by fixing 6 templates", template: "%s · SEOGEO Audit Kit" },
   description: DESCRIPTION,
   applicationName: "SEOGEO Audit Kit",
   authors: [{ name: "Jay Lahoti", url: "https://github.com/jaylahoti" }],
