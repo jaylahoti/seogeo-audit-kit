@@ -8,6 +8,11 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict
 from urllib.parse import urlsplit
 
+from app.checks import ai as ai_checks
+from app.checks import seo as seo_checks
+from app.checks.content import pick_samples
+from app.checks.findings import SEVERITY_PENALTY, TemplateContext, score
+from app.checks.page_facts import extract
 from app.crawl.crawler import crawl
 from app.ingest.llms_txt import check_llms_txt
 from app.ingest.robots import fetch_robots
@@ -189,6 +194,53 @@ async def _pipeline(rec: AuditRecord, client) -> None:
             ],
         }
 
+
+    async with stage(rec, "checks", "SEO and AI-readiness checks") as s:
+        results = await asyncio.to_thread(_run_checks, templates, pages, rec.result)
+        n_findings = sum(len(t["findings"]) for t in results)
+        s["detail"] = (
+            f"{n_findings} findings across {len(results)} templates · "
+            f"SEO {rec.result['scores']['seo']} · AI readiness {rec.result['scores']['ai']}"
+        )
+        rec.result["templates"] = results
+
+
+def _run_checks(templates: list[Template], pages: list, result: dict) -> list[dict]:
+    facts = {p.url: extract(p) for p in pages if p.status is not None}
+    out = []
+    weights = {"seo": 0.0, "ai": 0.0, "pages": 0}
+    for t in templates:
+        mine = [facts[u.loc] for u in t.urls if u.loc in facts]
+        lastmods = {u.loc: u.lastmod for u in t.urls}
+        samples = pick_samples([f for f in mine if f.status == 200], lastmods, n=5)
+        samples += [f for f in mine if f.status != 200]  # keep error pages for status checks
+        ctx = TemplateContext(t.pattern, t.estimated_pages, samples, lastmods)
+        findings = seo_checks.run(ctx) + ai_checks.run(ctx)
+        findings.sort(key=lambda f: (-SEVERITY_PENALTY[f.severity] * f.pages))
+        seo_score, ai_score = score(findings, "seo"), score(findings, "ai")
+        if samples:
+            weights["seo"] += seo_score * t.estimated_pages
+            weights["ai"] += ai_score * t.estimated_pages
+            weights["pages"] += t.estimated_pages
+        out.append({
+            **_template_json(t),
+            "seo_score": seo_score if samples else None,
+            "ai_score": ai_score if samples else None,
+            "findings": [asdict(f) for f in findings],
+            "passed": seo_checks.passed_checks(findings) if samples else [],
+            "samples": [
+                {
+                    "url": f.url, "status": f.status, "words": f.word_count, "title": f.title,
+                    "schema": sorted({ty for b in f.jsonld if b.data is not None for e in ai_checks.entities(b.data) for ty in ai_checks._types(e)}),
+                    "ms": round(f.elapsed_ms),
+                }
+                for f in samples
+            ],
+        })
+    total = max(1, weights["pages"])
+    result["scores"] = {"seo": round(weights["seo"] / total), "ai": round(weights["ai"] / total)}
+    result["site_findings"] = ai_checks.site_findings(result.get("robots", {}), result.get("llms_txt", {}))
+    return out
 
 CRAWL_PER_TEMPLATE = 6
 MAX_CRAWL = 200

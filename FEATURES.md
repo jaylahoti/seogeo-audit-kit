@@ -15,16 +15,17 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 - ✅ Template detection, signal 1: URL patterns ({id}, {uuid}, {slug}, {date}), facet-sibling merge, absorption
 - ✅ Polite page crawler: robots.txt + Crawl-delay respected, per-host concurrency + pacing, timeouts
 - ✅ Template detection, signal 2: shallow tag paths + heading skeleton → MinHash → HDBSCAN → close-cluster merge; splits/merges URL patterns; t-SNE map for the ML Lab
-- ⬜ Representative sampling per template (random, longest, shortest, newest, outlier)
+- ✅ Representative sampling per template (longest, shortest, newest, most unique, spread)
 
 ### Module 1 — Technical SEO (per template)
-- ⬜ Titles / meta descriptions: missing, duplicate, length
-- ⬜ Indexability: status, canonical, noindex (meta + header), robots blocks, redirect chains, broken links
-- ⬜ Headings, image alt, word count, thin content
-- ⬜ Near-duplicate content within a template (SimHash)
+- ✅ Titles / meta descriptions: missing, duplicate, length
+- ✅ Indexability: status, canonical (missing / points elsewhere), noindex (meta + header), sitemap redirects
+- ⬜ Broken internal links, redirect chains
+- ✅ Headings, image alt, word count, thin content, html lang, slow responses
+- ✅ Boilerplate share within a template (unique 5-word shingles per page)
 - ⬜ Internal linking: orphans, link depth
-- ⬜ Sitemap health: lastmod freshness, URLs that redirect / 404 / are noindexed
-- ⬜ hreflang
+- ✅ Sitemap health: lastmod missing / stale, URLs that redirect / error / are noindexed
+- ✅ hreflang self-reference
 
 ### Module 3 — Core Web Vitals
 - ⬜ LCP / CLS / INP per template from PageSpeed Insights (lab) + CrUX (field, when available)
@@ -32,10 +33,11 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 ### Module 4 — AI-readiness (on-page GEO)
 - ✅ AI-crawler policy: retrieval vs training bots, flags blocked retrieval bots
 - ✅ llms.txt: llmstxt.org structure, sitemap pointer, no `## Optional`, no internal hosts
-- ⬜ JSON-LD: present, parses, schema.org-valid, required props per type, no null/empty/placeholder values
-- ⬜ Freshness: `dateModified` present and recent
-- ⬜ Verdict sentence: one self-contained factual sentence an answer engine can quote
-- ⬜ Answer-first: main answer near the top
+- ✅ JSON-LD: present, parses, main entity present, required props per type, no null/empty/placeholder values
+- ✅ Freshness: `dateModified` present and recent
+- ✅ Verdict sentence (heuristic; Claude confirms on Day 2)
+- ✅ Facts up front (heuristic; Claude confirms on Day 2)
+- ⬜ Placeholder values in visible text ("-%", "NaN", "undefined")
 - ⬜ Fact-extraction test (Claude): key facts extracted and checked against page data
 - ⬜ Title template vs question intent
 
