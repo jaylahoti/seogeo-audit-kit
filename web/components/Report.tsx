@@ -48,7 +48,7 @@ export function Report({ audit }: { audit: Audit }) {
             <span>Ran {new Date(audit.ranAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC</span>
           </div>
           <h1 className="mt-2 text-2xl font-semibold">{audit.site}</h1>
-          <p className="mono mt-0.5 text-xs text-[var(--muted)]">{audit.sitemap} · {audit.live && audit.live.sitemapSource === "sitemap" && audit.live.exactCount?.status !== "done" && audit.live.pageCount.leavesRead < audit.live.pageCount.leavesTotal ? `~${fmt(audit.urls)} pages (estimated) · smart sampling` : `${fmt(audit.urls)} pages`} · {audit.templates.length} templates</p>
+          <p className="mono mt-0.5 text-xs text-[var(--muted)]">{audit.sitemap} · {audit.live && audit.live.sitemapSource === "sitemap" && audit.live.exactCount?.status !== "done" && audit.live.pageCount.leavesRead < audit.live.pageCount.leavesTotal ? `~${fmt(audit.urls)} pages (estimated)` : `${fmt(audit.urls)} pages`} · {audit.templates.length} page types</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -212,8 +212,16 @@ function PageCount({ audit }: { audit: Audit }) {
   const summary = done
     ? `${fmt(ex!.urls)} pages, counted from all ${fmt(ex!.files_total)} sitemap files`
     : sampled
-      ? `~${fmt(pc.estimatedTotal)} pages · smart sampling: ${pc.leavesRead} of ${pc.leavesTotal} sitemap files read · ${fmt(pc.urlsSampled)} URLs sampled`
-      : `${fmt(pc.estimatedTotal)} pages from all ${pc.leavesTotal} sitemap files · ${fmt(pc.urlsSampled)} URLs sampled`;
+      ? `~${fmt(pc.estimatedTotal)} pages, estimated from ${pc.leavesRead} of ${pc.leavesTotal} sitemap files`
+      : `${fmt(pc.estimatedTotal)} pages from all ${pc.leavesTotal} sitemap files`;
+  const checked = audit.templates.reduce((n, t) => n + t.samples.filter((x) => x.status === 200).length, 0);
+  const funnel: [string, string][] = [
+    [`${sampled && !done ? "~" : ""}${fmt(done ? ex!.urls : pc.estimatedTotal)}`, "pages on the site"],
+    [fmt(pc.urlsSampled), `page addresses read from ${pc.leavesRead} sitemap files to find the page types`],
+    [String(audit.templates.length), "page types found"],
+    [fmt(L.crawl.ok), "pages downloaded to confirm each page type's layout"],
+    [fmt(checked), "pages checked (about 5 per page type)"],
+  ];
 
   return (
     <details className="card group p-4" open={ex?.status === "running" || undefined}>
@@ -221,6 +229,16 @@ function PageCount({ audit }: { audit: Audit }) {
         <span><span className="font-medium">How pages were counted</span><span className="ml-2 text-[var(--muted)]">{summary}</span></span>
         <span className="text-[var(--faint)] transition group-open:rotate-45">+</span>
       </summary>
+
+      <ol className="mt-4 grid gap-px overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--line)] sm:grid-cols-5">
+        {funnel.map(([n, label], i) => (
+          <li key={label} className="bg-[var(--panel)] p-3">
+            <div className="mono text-lg font-semibold">{n}</div>
+            <div className="mt-0.5 text-xs text-[var(--muted)]">{label}</div>
+            {i < funnel.length - 1 && <span className="sr-only">, then</span>}
+          </li>
+        ))}
+      </ol>
 
       {sampled && !done && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--sunken)] px-3 py-2.5 text-sm">
@@ -291,11 +309,11 @@ function liveSummary(audit: Audit, id: string): string | null {
   switch (id) {
     case "technical": {
       const seo = all.filter((f) => f.area === "seo");
-      return `${new Set(seo.map((f) => f.id)).size} issues across ${audit.templates.filter((t) => t.findings.some((f) => f.area === "seo")).length} templates`;
+      return `${new Set(seo.map((f) => f.id)).size} issues across ${audit.templates.filter((t) => t.findings.some((f) => f.area === "seo")).length} page types`;
     }
     case "cwv": {
       const n = audit.templates.filter((t) => t.cwv).length;
-      return n ? `${n} templates measured` : "Needs a free PSI_API_KEY";
+      return n ? `${n} page types measured` : "Needs a free PSI_API_KEY";
     }
     case "ai":
       return `AI readiness ${audit.scores.ai} · ${L.llmsTxt.found ? "llms.txt found" : "no llms.txt"}`;
@@ -315,8 +333,8 @@ function liveSummary(audit: Audit, id: string): string | null {
 }
 
 const MODULE_SUMMARY: Record<string, string> = {
-  technical: "10 issues · 4 templates",
-  cwv: "2 templates fail LCP",
+  technical: "10 issues · 4 page types",
+  cwv: "2 page types fail LCP",
   ai: "AI readiness 48 · no llms.txt",
   whatai: "78% of building text needs JavaScript",
   fixes: "9 fixes ready to paste",
@@ -420,10 +438,11 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Templates, by impact</h2>
+        <h2 className="text-sm font-semibold">Page types, by impact</h2>
+        <p className="mb-3 mt-0.5 text-xs text-[var(--muted)]">A page type (template) is one layout used for many pages — like every building page. Fix it once and every page built from it is fixed.</p>
         <div className="card overflow-hidden">
           <div className="hidden grid-cols-[minmax(0,2fr)_90px_110px_110px_90px_24px] gap-4 border-b border-[var(--line)] px-4 py-2 text-xs text-[var(--faint)] md:grid">
-            <span>Template</span><span className="text-right">Pages</span><span>SEO</span><span>AI readiness</span><span className="text-right">Issues</span><span />
+            <span>Page type</span><span className="text-right">Pages</span><span>SEO</span><span>AI readiness</span><span className="text-right">Issues</span><span />
           </div>
           {sorted.map((t) => (
             <div key={t.id} className="border-b border-[var(--line)] last:border-0">
@@ -479,7 +498,7 @@ function SearchConsole({ templates }: { templates: Template[] }) {
       </div>
       <div className="card overflow-hidden">
         <div className="hidden grid-cols-[minmax(0,1.6fr)_minmax(0,2fr)_90px_100px] gap-4 border-b border-[var(--line)] px-4 py-2 text-xs text-[var(--faint)] md:grid">
-          <span>Template</span><span>Indexed / submitted</span><span className="text-right">Clicks</span><span className="text-right">Impressions</span>
+          <span>Page type</span><span>Indexed / submitted</span><span className="text-right">Clicks</span><span className="text-right">Impressions</span>
         </div>
         {templates.map((t) => {
           const indexed = t.indexed ?? 0, submitted = t.submitted ?? 0;
