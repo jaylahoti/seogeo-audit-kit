@@ -45,7 +45,7 @@ export function Report({ audit }: { audit: Audit }) {
             <span>Ran {new Date(audit.ranAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC</span>
           </div>
           <h1 className="mt-2 text-2xl font-semibold">{audit.site}</h1>
-          <p className="mono mt-0.5 text-xs text-[var(--muted)]">{audit.sitemap} · {fmt(audit.urls)} URLs · {audit.templates.length} templates</p>
+          <p className="mono mt-0.5 text-xs text-[var(--muted)]">{audit.sitemap} · {audit.live && audit.live.sitemapSource === "sitemap" && audit.live.pageCount.leavesRead < audit.live.pageCount.leavesTotal ? `~${fmt(audit.urls)} pages (estimated)` : `${fmt(audit.urls)} pages`} · {audit.templates.length} templates</p>
         </div>
         <div className="flex gap-2">
           <button
