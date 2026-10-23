@@ -5,15 +5,21 @@ from __future__ import annotations
 import asyncio
 import time
 from contextlib import asynccontextmanager
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 from urllib.parse import urlsplit
 
 from app.checks import ai as ai_checks
 from app.checks import seo as seo_checks
 from app.checks.content import pick_samples
-from app.checks.findings import SEVERITY_PENALTY, TemplateContext, score
+from app.checks.cwv import findings as cwv_findings
+from app.checks.cwv import measure
+from app.checks.findings import SEVERITY_PENALTY, Finding, TemplateContext, score
+from app.checks.links import check_links
 from app.checks.page_facts import extract
+from app.checks.render import compare, render_html
+from app.checks.render import findings as render_findings
 from app.crawl.crawler import crawl
+from app.fixes.generators import generate_llms_txt, generate_robots_txt
 from app.ingest.llms_txt import check_llms_txt
 from app.ingest.robots import fetch_robots
 from app.ingest.sitemap import ingest_sitemaps
@@ -196,26 +202,105 @@ async def _pipeline(rec: AuditRecord, client) -> None:
 
 
     async with stage(rec, "checks", "SEO and AI-readiness checks") as s:
-        results = await asyncio.to_thread(_run_checks, templates, pages, rec.result)
-        n_findings = sum(len(t["findings"]) for t in results)
+        facts = await asyncio.to_thread(lambda: {p.url: extract(p) for p in pages if p.status is not None})
+        state = await asyncio.to_thread(_base_checks, templates, facts)
+        s["detail"] = f"{sum(len(x.findings) for x in state)} findings across {len(state)} templates"
+
+    origin = "{0.scheme}://{0.netloc}".format(urlsplit(url))
+    async with stage(rec, "links", "Link checks (depth, broken, redirects)") as s:
+        report = await check_links(client, robots, origin, [x.t.pattern for x in state], list(facts.values()))
+        by_pattern = {x.t.pattern: x for x in state}
+        deep = 0
+        for pattern, depth in report.depth.items():
+            x = by_pattern[pattern]
+            if pattern in ("/", "/{static}") or not x.samples:
+                continue
+            if depth is None or depth > MAX_CLICKS:
+                deep += 1
+                x.findings.append(Finding(
+                    id="deep_template", area="seo", severity="medium",
+                    title=f"More than {MAX_CLICKS} clicks from the home page" if depth is None else f"{depth} clicks from the home page",
+                    detail="Pages reachable only through the sitemap or deep navigation get crawled less and pass less link value. "
+                           "Link to this template from hub pages, breadcrumbs or related-page modules.",
+                    affected=1, sampled=1, pages=x.t.estimated_pages, method="crawl"))
         s["detail"] = (
-            f"{n_findings} findings across {len(results)} templates · "
-            f"SEO {rec.result['scores']['seo']} · AI readiness {rec.result['scores']['ai']}"
+            f"{report.bfs_pages} pages from home · {report.probed} links probed · "
+            f"{len(report.broken)} broken · {len(report.redirecting)} redirecting · {deep} deep templates"
         )
-        rec.result["templates"] = results
+        rec.result["links"] = {
+            "depth": report.depth, "inbound": report.inbound, "bfs_pages": report.bfs_pages,
+            "probed": report.probed, "broken": report.broken[:20], "redirecting": report.redirecting[:20],
+        }
+
+    # Rendering and PageSpeed Insights both mostly wait on the network, so run them together.
+    big = [x for x in sorted(state, key=lambda x: -x.t.estimated_pages)
+           if x.t.pattern not in ("/", "/{static}") and any(f.status == 200 for f in x.samples)]
+
+    async def render_stage():
+        async with stage(rec, "render", "What AI sees (with vs without JavaScript)") as s:
+            picks = [(x, next(f for f in x.samples if f.status == 200)) for x in big[:MAX_RENDER]]
+            html = await render_html([f.url for _, f in picks], robots)
+            diffs = []
+            for x, f in picks:
+                d = compare(f, html.get(f.url))
+                diffs.append({"pattern": x.t.pattern, **asdict(d), "js_text_share": round(d.js_text_share, 3)})
+                x.findings.extend(render_findings(d, x.t.estimated_pages))
+            hidden = [d for d in diffs if d["js_text_share"] >= 0.2]
+            s["detail"] = f"{len(diffs)} templates rendered · {len(hidden)} need JavaScript for 20%+ of their text"
+            rec.result["render"] = diffs
+
+    async def cwv_stage():
+        async with stage(rec, "cwv", "Core Web Vitals (PageSpeed Insights)") as s:
+            picks = [(x, next(f for f in x.samples if f.status == 200)) for x in big[:MAX_CWV]]
+            vitals = await measure([f.final_url for _, f in picks])
+            for (x, _), v in zip(picks, vitals, strict=True):
+                x.findings.extend(cwv_findings(v, x.t.estimated_pages))
+            errors = [v.error for v in vitals if v.error]
+            s["detail"] = f"{len(vitals) - len(errors)} of {len(vitals)} templates measured" + (f" · {errors[0]}" if errors else "")
+            rec.result["cwv"] = [{"pattern": x.t.pattern, **asdict(v)} for (x, _), v in zip(picks, vitals, strict=True)]
+
+    await asyncio.gather(render_stage(), cwv_stage())
+
+    async with stage(rec, "score", "Score and generate fixes") as s:
+        rec.result["templates"] = _finalize(state, rec.result)
+        sitemaps = rec.result["sitemap"]["start"] if rec.result.get("sitemap") else []
+        rec.result["fixes"] = {
+            "llms_txt": generate_llms_txt(origin, report.home, rec.result["templates"], sitemaps),
+            "robots_txt": generate_robots_txt(rec.result.get("robots", {}), sitemaps),
+        }
+        n = sum(len(t["findings"]) for t in rec.result["templates"])
+        s["detail"] = f"{n} findings · SEO {rec.result['scores']['seo']} · AI readiness {rec.result['scores']['ai']}"
 
 
-def _run_checks(templates: list[Template], pages: list, result: dict) -> list[dict]:
-    facts = {p.url: extract(p) for p in pages if p.status is not None}
+MAX_CLICKS = 3
+MAX_RENDER = 12
+MAX_CWV = 8
+
+
+@dataclass
+class _TemplateState:
+    t: Template
+    samples: list
+    findings: list[Finding] = field(default_factory=list)
+
+
+def _base_checks(templates: list[Template], facts: dict) -> list[_TemplateState]:
     out = []
-    weights = {"seo": 0.0, "ai": 0.0, "pages": 0}
     for t in templates:
         mine = [facts[u.loc] for u in t.urls if u.loc in facts]
         lastmods = {u.loc: u.lastmod for u in t.urls}
         samples = pick_samples([f for f in mine if f.status == 200], lastmods, n=5)
         samples += [f for f in mine if f.status != 200]  # keep error pages for status checks
         ctx = TemplateContext(t.pattern, t.estimated_pages, samples, lastmods)
-        findings = seo_checks.run(ctx) + ai_checks.run(ctx)
+        out.append(_TemplateState(t, samples, seo_checks.run(ctx) + ai_checks.run(ctx)))
+    return out
+
+
+def _finalize(state: list[_TemplateState], result: dict) -> list[dict]:
+    out = []
+    weights = {"seo": 0.0, "ai": 0.0, "pages": 0}
+    for x in state:
+        t, samples, findings = x.t, x.samples, x.findings
         findings.sort(key=lambda f: (-SEVERITY_PENALTY[f.severity] * f.pages))
         seo_score, ai_score = score(findings, "seo"), score(findings, "ai")
         if samples:
@@ -240,7 +325,18 @@ def _run_checks(templates: list[Template], pages: list, result: dict) -> list[di
     total = max(1, weights["pages"])
     result["scores"] = {"seo": round(weights["seo"] / total), "ai": round(weights["ai"] / total)}
     result["site_findings"] = ai_checks.site_findings(result.get("robots", {}), result.get("llms_txt", {}))
+    links = result.get("links", {})
+    if links.get("broken"):
+        result["site_findings"].append({"id": "broken_links", "severity": "high",
+            "title": f"{len(links['broken'])} broken internal links (of {links['probed']} checked)",
+            "detail": "Links on your pages that return 4xx/5xx: " + ", ".join(b["target"] for b in links["broken"][:3])})
+    chains = [r for r in links.get("redirecting", []) if r.get("found_on")]
+    if chains:
+        result["site_findings"].append({"id": "links_to_redirects", "severity": "low",
+            "title": f"{len(chains)} internal links point at redirects",
+            "detail": "Link straight to the final URL: " + ", ".join(f"{r['target']} → {r['to']}" for r in chains[:3])})
     return out
+
 
 CRAWL_PER_TEMPLATE = 6
 MAX_CRAWL = 200

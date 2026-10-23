@@ -42,6 +42,10 @@ REQUIRED: dict[str, list[str | tuple[str, ...]]] = {
 # Types that describe the site or navigation, not the page's subject.
 CHROME_TYPES = {"BreadcrumbList", "WebSite", "WebPage", "SiteNavigationElement", "SearchAction", "ImageObject"}
 RE_PLACEHOLDER = re.compile(r"\{\{.*?\}\}|\$\{.*?\}|\[object Object\]|^(undefined|null|none|nan|n/a|todo|tbd)$", re.IGNORECASE)
+# Unfilled values that leak into visible text: "-%", "NaN", "undefined", "{{name}}", "$NaN".
+RE_VISIBLE_PLACEHOLDER = re.compile(
+    r"(?<![\w.])-\s?%|\bNaN\b|\bundefined\b|\[object Object\]|\{\{[^}]{1,40}\}\}|\$\{[^}]{1,40}\}|\bnull\b(?=\s*(?:%|reviews|ratings|units|/))",
+)
 STALE_MODIFIED_DAYS = 90
 STOP = {"the", "and", "for", "of", "in", "at", "on", "a", "an", "to", "by", "with", "&", "-", "|"}
 
@@ -162,6 +166,15 @@ def run(ctx: TemplateContext) -> list[Finding]:
     out.append(make(ctx, "date_modified_stale", "ai", "low", f"dateModified older than {STALE_MODIFIED_DAYS} days",
                     "Stale dates make the page look out of date even when its data isn't.",
                     [p for p in ok if (d := _days_old(_modified(p))) is not None and d > STALE_MODIFIED_DAYS]))
+
+    leaks = {id(p): sorted({m.group(0) for m in RE_VISIBLE_PLACEHOLDER.finditer(p.main_text)}) for p in ok}
+    with_leaks = [p for p in ok if leaks[id(p)]]
+    leak_examples = sorted({x for p in with_leaks for x in leaks[id(p)]})[:5]
+    out.append(make(ctx, "visible_placeholders", "ai", "medium", "Empty values shown on the page",
+                    "Unfilled values like " + ", ".join(f"“{x}”" for x in leak_examples)
+                    + " appear in the text. AI answers may quote them, and they read as missing data. "
+                    "Hide the field or show a sentence like 'No reviews yet' instead.",
+                    with_leaks))
 
     out.append(make(ctx, "no_verdict", "ai", "medium", "No quotable verdict sentence",
                     "Answer engines lift single sentences. Add one near the top that names the entity and states its key facts.",

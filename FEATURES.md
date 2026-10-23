@@ -6,7 +6,7 @@ thousands of pages.
 
 Status key: ✅ built · 🟡 in progress · ⬜ not started
 
-## Stage 1 — Audit (Day 1)
+## Stage 1 — Audit (Day 1) ✅
 
 ### Foundation
 - ✅ SSRF-safe fetcher: private/metadata IPs blocked, every redirect re-checked, IP pinning, size caps
@@ -20,15 +20,16 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 ### Module 1 — Technical SEO (per template)
 - ✅ Titles / meta descriptions: missing, duplicate, length
 - ✅ Indexability: status, canonical (missing / points elsewhere), noindex (meta + header), sitemap redirects
-- ⬜ Broken internal links, redirect chains
+- ✅ Broken internal links and links to redirects (40 link targets probed per audit)
 - ✅ Headings, image alt, word count, thin content, html lang, slow responses
 - ✅ Boilerplate share within a template (unique 5-word shingles per page)
-- ⬜ Internal linking: orphans, link depth
+- ✅ Click depth per template (bounded crawl from the home page, 60 pages / 3 clicks)
+- ⬜ Full orphan detection (needs a complete crawl or server logs)
 - ✅ Sitemap health: lastmod missing / stale, URLs that redirect / error / are noindexed
 - ✅ hreflang self-reference
 
 ### Module 3 — Core Web Vitals
-- ⬜ LCP / CLS / INP per template from PageSpeed Insights (lab) + CrUX (field, when available)
+- ✅ LCP / CLS / INP per template from PageSpeed Insights: field data (URL, then origin) or lab run; needs a free PSI_API_KEY
 
 ### Module 4 — AI-readiness (on-page GEO)
 - ✅ AI-crawler policy: retrieval vs training bots, flags blocked retrieval bots
@@ -37,17 +38,17 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 - ✅ Freshness: `dateModified` present and recent
 - ✅ Verdict sentence (heuristic; Claude confirms on Day 2)
 - ✅ Facts up front (heuristic; Claude confirms on Day 2)
-- ⬜ Placeholder values in visible text ("-%", "NaN", "undefined")
+- ✅ Placeholder values in visible text ("-%", "NaN", "undefined", "{{…}}")
 - ⬜ Fact-extraction test (Claude): key facts extracted and checked against page data
 - ⬜ Title template vs question intent
 
 ### Module 7 — What AI sees
-- ⬜ Fetch each template's samples raw (no JS, like most AI crawlers) vs rendered (headless browser)
-- ⬜ Diff: facts, text, links and JSON-LD that only exist after JavaScript runs
+- ✅ Each template's sample fetched raw (no JS) vs rendered in headless Chromium, with every browser request checked against the SSRF guard
+- ✅ Diff: text share, headings, links and JSON-LD that only exist after JavaScript runs
 
 ### Module 12 — Fix generators
-- ⬜ JSON-LD per template (validated before shown), verdict block, title template, summary block
-- ⬜ llms.txt and robots.txt generators
+- ⬜ JSON-LD per template (validated before shown), verdict block, title template, summary block — Claude, Day 2
+- ✅ llms.txt and robots.txt generators (built from the audit's templates, sitemaps and current bot policy)
 
 ## Stage 2 — AI + product (Day 2)
 - ⬜ Judge agent: merge findings per template, rank by pages × severity; model router (rules → Haiku → Sonnet)

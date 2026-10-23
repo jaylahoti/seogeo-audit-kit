@@ -85,3 +85,11 @@ def test_main_text_picks_largest_main():
     body = "<main><input placeholder=search>What are you looking for?</main><main><h1>Building 9</h1>" + "<p>" + " ".join(f"w{k}" for k in range(400)) + "</p></main>"
     p = page(9, body=body)
     assert p.word_count > 300
+
+
+def test_visible_placeholders():
+    leaky = page(1, body="<p>Building 1 has 120 units. -% Renters recommend this building. Rent: $NaN. Hi {{name}}.</p>")
+    clean = page(2, body="<p>Building 2 has 120 units. 85% of renters recommend it, up 5% this year.</p>")
+    f = next(f for f in ai.run(ctx([leaky, clean])) if f.id == "visible_placeholders")
+    assert f.affected == 1
+    assert "-%" in f.detail and "NaN" in f.detail and "{{name}}" in f.detail
