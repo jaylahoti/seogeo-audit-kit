@@ -87,7 +87,7 @@ A template's problems repeat on every page built from it, so the audit doesn't n
 page. It reads a fair sample of sitemap files across every family, keeps a spread of URLs
 from each, checks about 5 representative pages per template, and scales the counts back up.
 The report shows exactly how pages were counted, per sitemap family. On a 1.3M-page site the
-estimate was within 0.7% of a full count, and the audit took about 2.5 minutes.
+estimate was within 1% of a full count (1,356,128 vs 1,345,411), and the audit took about 2.5 minutes.
 
 **Count every page** (on any report, or `POST /audits/{id}/count`) reads every sitemap file
 and replaces the estimates with exact counts. It only counts URLs, so the findings don't
