@@ -2,23 +2,34 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { createAudit } from "@/lib/api";
 
 export function AuditForm() {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
+    let value = url.trim();
+    if (value && !/^https?:\/\//i.test(value)) value = `https://${value}`; // allow "example.com"
     try {
-      const u = new URL(url.trim());
-      if (!/^https?:$/.test(u.protocol)) throw new Error();
+      const u = new URL(value);
+      if (!/^https?:$/.test(u.protocol) || !u.hostname.includes(".")) throw new Error();
     } catch {
-      setErr("Enter a full sitemap URL, starting with https://");
+      setErr("Enter a website or sitemap URL, like example.com or https://example.com/sitemap.xml");
       return;
     }
-    // UI prototype: every run plays the sample audit.
-    router.push(`/run?url=${encodeURIComponent(url.trim())}`);
+    setBusy(true);
+    setErr("");
+    try {
+      const { id } = await createAudit(value);
+      router.push(`/run?id=${encodeURIComponent(id)}&url=${encodeURIComponent(value)}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't start the audit.");
+      setBusy(false);
+    }
   }
 
   return (
@@ -28,20 +39,16 @@ export function AuditForm() {
         <input
           value={url}
           onChange={(e) => { setUrl(e.target.value); setErr(""); }}
-          placeholder="https://yoursite.com/sitemap.xml"
-          aria-label="Sitemap URL"
+          placeholder="yoursite.com or yoursite.com/sitemap.xml"
+          aria-label="Website or sitemap URL"
           className="mono h-10 min-w-0 flex-1 bg-transparent text-sm outline-none"
         />
-        <button className="btn btn-primary h-10 px-4">Run audit</button>
+        <button className="btn btn-primary h-10 px-4" disabled={busy}>{busy ? "Starting…" : "Run audit"}</button>
       </div>
       {err && <p className="mt-2 text-sm text-[var(--bad)]">{err}</p>}
-      <button
-        type="button"
-        onClick={() => setUrl("https://nestlist.example/sitemap.xml")}
-        className="mt-2 text-xs text-[var(--muted)] underline-offset-2 hover:underline"
-      >
-        Try an example sitemap
-      </button>
+      <a href="/report/demo-nestlist" className="mt-2 inline-block text-xs text-[var(--muted)] underline-offset-2 hover:underline">
+        Or open a sample report
+      </a>
     </form>
   );
 }

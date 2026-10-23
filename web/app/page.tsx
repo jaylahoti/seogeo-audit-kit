@@ -104,7 +104,7 @@ export default function Home() {
           <p className="mt-5 max-w-xl text-lg text-[var(--muted)]">
             SEO and GEO audits for programmatic sites: rank on Google and get cited by ChatGPT, Perplexity and Claude — reported per template, so every fix shows how many pages it covers.
           </p>
-          <div className="mt-8 max-w-xl"><AuditForm /></div>
+          <div id="audit" className="mt-8 max-w-xl scroll-mt-24"><AuditForm /></div>
           <p className="mt-3 text-xs text-[var(--faint)]">3 free audits a day · about $0.11 each, paid by us · no sign-up</p>
         </div>
         <HeroPreview />

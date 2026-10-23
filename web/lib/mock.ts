@@ -4,11 +4,16 @@ export type Severity = "high" | "medium" | "low";
 export type Area = "ai" | "seo";
 
 export type Finding = {
+  id?: string;
   area: Area;
   severity: Severity;
   title: string;
   detail: string;
   pages: number;
+  affected?: number; // sample pages that failed (live audits)
+  sampled?: number;
+  examples?: string[];
+  method?: string; // rule | heuristic | render | psi | crawl | claude
   fix?: { kind: "jsonld" | "html"; label: string; content: string };
 };
 
@@ -17,9 +22,11 @@ export type SamplePage = {
   status: number;
   words: number;
   schema: string[];
-  factsFound: number;
-  factsTotal: number;
-  lcp: number;
+  title?: string | null;
+  ms?: number;
+  factsFound?: number; // from Claude's fact-extraction test
+  factsTotal?: number;
+  lcp?: number;
 };
 
 export type Template = {
@@ -28,16 +35,19 @@ export type Template = {
   pages: number;
   seo: number;
   ai: number;
-  submitted: number;
-  indexed: number;
-  clicks: number;
-  impressions: number;
-  cwv: { lcp: number; cls: number; inp: number };
-  questions: string[];
-  citation: { asked: number; cited: number; citedInstead: string[] };
-  notIndexedReasons: { reason: string; share: number }[];
+  // Search Console, citations and questions come from connected accounts / Claude.
+  submitted?: number;
+  indexed?: number;
+  clicks?: number;
+  impressions?: number;
+  cwv?: { lcp: number | null; cls: number | null; inp: number | null; source?: string };
+  questions?: string[];
+  citation?: { asked: number; cited: number; citedInstead: string[] };
+  notIndexedReasons?: { reason: string; share: number }[];
   findings: Finding[];
   samples: SamplePage[];
+  examples?: string[];
+  passed?: string[];
 };
 
 export type Stage = { key: string; label: string; detail: string; ms: number; cost: number; tokens?: number; model?: string };
@@ -55,6 +65,27 @@ export type Audit = {
   templates: Template[];
   stages: Stage[];
   ml: { ari: number; purity: number; kappa: number; judgeAgree: number; labelledSites: number };
+  inputUrl?: string; // what the user typed (live audits), used by Re-run
+  live?: LiveExtras; // present on real audits from the API
+};
+
+export type RenderDiffLive = {
+  pattern: string; url: string; raw_words: number; rendered_words: number; raw_links: number;
+  rendered_links: number; raw_jsonld: number; rendered_jsonld: number; js_only_headings: string[];
+  js_text_share: number; error: string | null;
+};
+
+export type LiveExtras = {
+  sitemapSource: "sitemap" | "links";
+  robots: { found: boolean; sitemaps: string[]; ai_crawlers: { agent: string; kind: string; allowed: boolean }[]; blocked_retrieval_bots: string[] };
+  llmsTxt: { found: boolean; title: string | null; sections: string[]; links: number; issues: string[] };
+  render: RenderDiffLive[];
+  cwvErrors: string[];
+  fixes: { llms_txt: string; robots_txt: string };
+  links: { depth: Record<string, number | null>; bfs_pages: number; probed: number; broken: { target: string; status: number; found_on: string | null }[]; redirecting: { target: string; to: string; hops: number }[] };
+  siteFindings: { id: string; severity: Severity; title: string; detail: string }[];
+  ml: { pages: number; layouts: number; noise: number; points: { x: number; y: number; layout: number; url: string }[] };
+  crawl: { requested: number; ok: number; non_200: number; errors: number; blocked_by_robots: number; avg_ms: number };
 };
 
 const BUILDING_JSONLD = `{

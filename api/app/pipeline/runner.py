@@ -20,9 +20,10 @@ from app.checks.render import compare, render_html
 from app.checks.render import findings as render_findings
 from app.crawl.crawler import crawl
 from app.fixes.generators import generate_llms_txt, generate_robots_txt
+from app.ingest.discover import candidate_sitemaps, discover_by_links
 from app.ingest.llms_txt import check_llms_txt
 from app.ingest.robots import fetch_robots
-from app.ingest.sitemap import ingest_sitemaps
+from app.ingest.sitemap import SitemapResult, ingest_sitemaps
 from app.ml.dom_clusters import Sampled, cluster_layouts, fingerprint, reconcile
 from app.ml.url_patterns import Template, detect_url_templates
 from app.net.safe_fetch import BlockedURL, check_url, make_client
@@ -57,6 +58,10 @@ async def stage(rec: AuditRecord, key: str, label: str):
     })
 
 
+class AuditError(Exception):
+    """A problem with the site being audited; the message is shown to the user as-is."""
+
+
 async def run_audit(rec: AuditRecord) -> None:
     async with _slots:
         rec.status = "running"
@@ -66,7 +71,7 @@ async def run_audit(rec: AuditRecord) -> None:
                 await _pipeline(rec, client)
             rec.status = "done"
             await rec.emit({"type": "done"})
-        except BlockedURL as e:
+        except (BlockedURL, AuditError) as e:  # expected, user-facing problems
             rec.status, rec.error = "error", str(e)
             await rec.emit({"type": "error", "message": str(e)})
         except Exception as e:  # noqa: BLE001 — top-level boundary: clean message, no traceback
@@ -103,26 +108,42 @@ async def _pipeline(rec: AuditRecord, client) -> None:
         rec.result["llms_txt"] = asdict(llms)
 
     async with stage(rec, "sitemap", "Read sitemap") as s:
+        async def progress(n_urls: int, n_maps: int):
+            await rec.emit({"type": "progress", "key": "sitemap", "urls": n_urls, "sitemaps": n_maps})
+
+        source = "sitemap"
         if looks_like_sitemap(url):
             start = [url]
         elif robots.sitemaps:
             start = robots.sitemaps
         else:
-            p = urlsplit(url)
-            start = [f"{p.scheme}://{p.netloc}/sitemap.xml"]
-
-        async def progress(n_urls: int, n_maps: int):
-            await rec.emit({"type": "progress", "key": "sitemap", "urls": n_urls, "sitemaps": n_maps})
-
+            start = candidate_sitemaps(url)[:1]
         sm = await ingest_sitemaps(client, start, on_progress=progress)
+        if not sm.urls and not looks_like_sitemap(url):
+            # Not listed in robots.txt or not at /sitemap.xml: try the other usual places.
+            for candidate in candidate_sitemaps(url)[1:]:
+                trial = await ingest_sitemaps(client, [candidate], on_progress=progress)
+                if trial.urls:
+                    sm, start = trial, [candidate]
+                    break
         if not sm.urls:
-            problems = "; ".join(i.message for i in sm.issues[:3]) or "no URLs listed"
-            raise ValueError(f"Couldn't read any URLs from the sitemap ({problems})")
+            if looks_like_sitemap(url):
+                problems = "; ".join(i.message for i in sm.issues[:2]) or "it lists no URLs"
+                raise AuditError(f"Couldn't read that sitemap: {problems}.")
+            # No sitemap anywhere: find pages by following links from the home page.
+            await rec.emit({"type": "progress", "key": "sitemap", "urls": 0, "sitemaps": 0})
+            found = await discover_by_links(client, url, robots)
+            if len(found) < 2:
+                raise AuditError("This site has no sitemap and its home page links to no other pages we could read.")
+            sm = SitemapResult(urls=found, listed_total=len(found))
+            source, start = "links", []
         s["detail"] = (
-            f"{len(sm.sitemaps_read)} sitemap(s) · {len(sm.urls):,} URLs sampled"
-            f" of ~{sm.estimated_total:,}"
+            f"No sitemap — found {len(sm.urls):,} pages by following links from the home page"
+            if source == "links" else
+            f"{len(sm.sitemaps_read)} sitemap(s) · {len(sm.urls):,} URLs sampled of ~{sm.estimated_total:,}"
         )
         rec.result["sitemap"] = {
+            "source": source,
             "start": start,
             "sitemaps_read": sm.sitemaps_read,
             "urls_sampled": len(sm.urls),

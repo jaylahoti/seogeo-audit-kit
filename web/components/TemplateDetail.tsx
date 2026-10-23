@@ -10,9 +10,20 @@ const TABS = [
   ["samples", "Sample pages"],
 ] as const;
 
+const METHOD_LABEL: Record<string, string> = {
+  rule: "Rule check",
+  heuristic: "Heuristic · Claude confirms next",
+  render: "Headless browser",
+  psi: "PageSpeed Insights",
+  crawl: "Crawl from home page",
+  claude: "Claude",
+};
+
 export function TemplateDetail({ t }: { t: Template }) {
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("ai");
   const findings = t.findings.filter((f) => f.area === tab);
+  const hasFacts = t.samples.some((s) => s.factsTotal != null);
+  const hasLcp = t.samples.some((s) => s.lcp != null);
 
   return (
     <div className="border-t border-[var(--line)] bg-[var(--panel)] px-4 pb-5 pt-2 md:px-8">
@@ -20,7 +31,7 @@ export function TemplateDetail({ t }: { t: Template }) {
         {TABS.map(([k, label]) => (
           <button key={k} role="tab" aria-selected={tab === k} className="tab" onClick={() => setTab(k)}>
             {label}
-            {k !== "samples" && <span className="ml-1.5 text-[var(--faint)]">{t.findings.filter((f) => f.area === k).length}</span>}
+            <span className="ml-1.5 text-[var(--faint)]">{k === "samples" ? t.samples.length : t.findings.filter((f) => f.area === k).length}</span>
           </button>
         ))}
       </div>
@@ -29,18 +40,20 @@ export function TemplateDetail({ t }: { t: Template }) {
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <FindingList findings={findings} />
           <div className="space-y-3">
-            <div className="sunken p-3">
-              <div className="text-xs text-[var(--muted)]">AI citation check</div>
-              <div className="mt-1 text-sm">
-                Cited in <b>{t.citation.cited}</b> of {t.citation.asked} answers
+            {t.citation ? (
+              <div className="sunken p-3">
+                <div className="text-xs text-[var(--muted)]">AI citation check</div>
+                <div className="mt-1 text-sm">Cited in <b>{t.citation.cited}</b> of {t.citation.asked} answers</div>
+                {t.citation.citedInstead.length > 0 && (
+                  <div className="mt-2 text-xs text-[var(--muted)]">
+                    Cited instead: {t.citation.citedInstead.map((d) => <span key={d} className="mono mr-1.5 text-[var(--text)]">{d}</span>)}
+                  </div>
+                )}
               </div>
-              {t.citation.citedInstead.length > 0 && (
-                <div className="mt-2 text-xs text-[var(--muted)]">
-                  Cited instead: {t.citation.citedInstead.map((d) => <span key={d} className="mono mr-1.5 text-[var(--text)]">{d}</span>)}
-                </div>
-              )}
-            </div>
-            {t.questions.length > 0 && (
+            ) : (
+              <Pending title="AI citation check" text="Claude asks this template's questions with web search and records who gets cited. Arrives with the Claude checks." />
+            )}
+            {t.questions && t.questions.length > 0 && (
               <div className="sunken p-3">
                 <div className="text-xs text-[var(--muted)]">Questions this template should answer</div>
                 <ul className="mt-1.5 space-y-1 text-sm">{t.questions.map((q) => <li key={q}>“{q}”</li>)}</ul>
@@ -54,23 +67,37 @@ export function TemplateDetail({ t }: { t: Template }) {
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
           <FindingList findings={findings} />
           <div className="space-y-3">
-            <div className="sunken p-3">
-              <div className="text-xs text-[var(--muted)]">Core Web Vitals · mobile, p75</div>
-              <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-                <Vital label="LCP" value={`${t.cwv.lcp}s`} ok={t.cwv.lcp <= 2.5} />
-                <Vital label="CLS" value={t.cwv.cls.toFixed(2)} ok={t.cwv.cls <= 0.1} />
-                <Vital label="INP" value={`${t.cwv.inp}ms`} ok={t.cwv.inp <= 200} />
+            {t.cwv ? (
+              <div className="sunken p-3">
+                <div className="text-xs text-[var(--muted)]">Core Web Vitals · mobile{t.cwv.source ? ` · ${t.cwv.source.startsWith("field") ? "real users" : "lab"}` : ", p75"}</div>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                  <Vital label="LCP" value={t.cwv.lcp != null ? `${t.cwv.lcp.toFixed(1)}s` : "—"} ok={t.cwv.lcp == null || t.cwv.lcp <= 2.5} />
+                  <Vital label="CLS" value={t.cwv.cls != null ? t.cwv.cls.toFixed(2) : "—"} ok={t.cwv.cls == null || t.cwv.cls <= 0.1} />
+                  <Vital label="INP" value={t.cwv.inp != null ? `${Math.round(t.cwv.inp)}ms` : "—"} ok={t.cwv.inp == null || t.cwv.inp <= 200} />
+                </div>
               </div>
-            </div>
-            <div className="sunken p-3">
-              <div className="text-xs text-[var(--muted)]">Why pages aren't indexed (Search Console)</div>
-              <ul className="mt-2 space-y-1.5 text-sm">
-                {t.notIndexedReasons.map((r) => (
-                  <li key={r.reason} className="flex justify-between gap-2"><span className="truncate">{r.reason}</span><span className="mono text-xs">{Math.round(r.share * 100)}%</span></li>
-                ))}
-                {t.notIndexedReasons.length === 0 && <li className="text-[var(--muted)]">All submitted pages indexed.</li>}
-              </ul>
-            </div>
+            ) : (
+              <Pending title="Core Web Vitals" text="Not measured for this template. Add a free PSI_API_KEY to the API to measure the largest templates." />
+            )}
+            {t.notIndexedReasons ? (
+              <div className="sunken p-3">
+                <div className="text-xs text-[var(--muted)]">Why pages aren't indexed (Search Console)</div>
+                <ul className="mt-2 space-y-1.5 text-sm">
+                  {t.notIndexedReasons.map((r) => (
+                    <li key={r.reason} className="flex justify-between gap-2"><span className="truncate">{r.reason}</span><span className="mono text-xs">{Math.round(r.share * 100)}%</span></li>
+                  ))}
+                  {t.notIndexedReasons.length === 0 && <li className="text-[var(--muted)]">All submitted pages indexed.</li>}
+                </ul>
+              </div>
+            ) : (
+              <Pending title="Indexation" text="Connect Google Search Console to see indexed vs submitted pages and why pages aren't indexed." />
+            )}
+            {t.passed && t.passed.length > 0 && (
+              <div className="sunken p-3">
+                <div className="text-xs text-[var(--muted)]">Passed</div>
+                <ul className="mt-1.5 space-y-1 text-xs text-[var(--good)]">{t.passed.map((p) => <li key={p}>✓ {p}</li>)}</ul>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -79,24 +106,41 @@ export function TemplateDetail({ t }: { t: Template }) {
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[620px] text-sm">
             <thead className="text-left text-xs text-[var(--faint)]">
-              <tr><th className="py-2 font-normal">URL</th><th className="font-normal">Status</th><th className="font-normal">Words</th><th className="font-normal">Schema</th><th className="font-normal">Facts found</th><th className="font-normal">LCP</th></tr>
+              <tr>
+                <th className="py-2 font-normal">URL</th><th className="font-normal">Status</th><th className="font-normal">Words</th>
+                <th className="font-normal">Schema</th>
+                {hasFacts && <th className="font-normal">Facts found</th>}
+                {hasLcp ? <th className="font-normal">LCP</th> : <th className="font-normal">Response</th>}
+              </tr>
             </thead>
             <tbody className="divide-y divide-[var(--line)]">
               {t.samples.map((s) => (
                 <tr key={s.url}>
-                  <td className="mono max-w-[260px] truncate py-2 pr-4">{s.url}</td>
+                  <td className="max-w-[300px] py-2 pr-4">
+                    <a href={s.url} target="_blank" rel="noreferrer" className="mono block truncate hover:underline">{s.url.replace(/^https?:\/\/[^/]+/, "")}</a>
+                    {s.title && <div className="truncate text-xs text-[var(--faint)]">{s.title}</div>}
+                  </td>
                   <td><span className={`pill ${s.status === 200 ? "sev-low" : "sev-medium"}`}>{s.status}</span></td>
                   <td className="mono">{s.words ? fmt(s.words) : "—"}</td>
-                  <td className="text-xs">{s.schema.length ? s.schema.join(", ") : <span className="text-[var(--bad)]">none</span>}</td>
-                  <td className="mono">{s.factsFound}/{s.factsTotal}</td>
-                  <td className="mono">{s.lcp ? `${s.lcp}s` : "—"}</td>
+                  <td className="max-w-[220px] text-xs">{s.schema.length ? s.schema.join(", ") : <span className="text-[var(--bad)]">none</span>}</td>
+                  {hasFacts && <td className="mono">{s.factsFound}/{s.factsTotal}</td>}
+                  {hasLcp ? <td className="mono">{s.lcp ? `${s.lcp}s` : "—"}</td> : <td className="mono text-xs">{s.ms != null ? `${s.ms} ms` : "—"}</td>}
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-[var(--faint)]">“Facts found”: how many key facts Claude correctly extracted from the page, checked against the page's own data.</p>
+          {hasFacts && <p className="mt-3 text-xs text-[var(--faint)]">“Facts found”: how many key facts Claude correctly extracted from the page, checked against the page's own data.</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+function Pending({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="rounded-[10px] border border-dashed border-[var(--line-strong)] p-3">
+      <div className="text-xs text-[var(--muted)]">{title}</div>
+      <p className="mt-1 text-xs text-[var(--faint)]">{text}</p>
     </div>
   );
 }
@@ -105,7 +149,7 @@ function FindingList({ findings }: { findings: Finding[] }) {
   if (!findings.length) return <p className="py-4 text-sm text-[var(--muted)]">No issues found here.</p>;
   return (
     <ul className="space-y-3">
-      {findings.map((f) => <FindingCard key={f.title} f={f} />)}
+      {findings.map((f) => <FindingCard key={(f.id ?? "") + f.title} f={f} />)}
     </ul>
   );
 }
@@ -120,14 +164,23 @@ function FindingCard({ f }: { f: Finding }) {
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">{f.title}</div>
           <p className="mt-0.5 text-sm text-[var(--muted)]">{f.detail}</p>
-          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-            <span className="mono text-[var(--muted)]">Fix covers {fmt(f.pages)} pages</span>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span className="mono text-[var(--muted)]">Fix covers ~{fmt(f.pages)} pages</span>
+            {f.sampled != null && f.sampled > 1 && <span className="text-[var(--faint)]">{f.affected} of {f.sampled} samples</span>}
+            {f.method && <span className="text-[var(--faint)]">{METHOD_LABEL[f.method] ?? f.method}</span>}
             {f.fix && (
               <button className="text-[var(--accent)] hover:underline" onClick={() => setShow(!show)}>
                 {show ? "Hide fix" : `Show fix · ${f.fix.label}`}
               </button>
             )}
           </div>
+          {f.examples && f.examples.length > 0 && (
+            <div className="mt-1.5 space-y-0.5">
+              {f.examples.slice(0, 2).map((u) => (
+                <a key={u} href={u} target="_blank" rel="noreferrer" className="mono block truncate text-[11px] text-[var(--faint)] hover:text-[var(--text)]">{u}</a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {f.fix && show && (

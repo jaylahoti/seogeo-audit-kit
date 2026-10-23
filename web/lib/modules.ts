@@ -49,7 +49,16 @@ export const TECH_CHECKS: TechCheck[] = [
 export const TECH_PASSED = ["HTTPS everywhere", "No noindex on sitemap URLs", "Single H1 per page", "hreflang not needed (one locale)", "No redirect chains longer than 1 hop", "robots.txt allows all templates"];
 
 // --- Module 4: AI readiness ------------------------------------------------------
-export type AiRow = { pattern: string; jsonld: "valid" | "invalid" | "missing"; fresh: boolean; verdict: boolean; answerFirst: boolean; facts: number; titleIntent: boolean };
+export type AiRow = {
+  pattern: string;
+  jsonld: "valid" | "invalid" | "missing";
+  fresh: boolean;
+  verdict: boolean;
+  answerFirst: boolean;
+  noPlaceholders?: boolean; // live audits
+  facts: number | null; // Claude's fact-extraction score; null until Claude checks run
+  titleIntent: boolean | null; // Claude; null until Claude checks run
+};
 
 export const AI_ROWS: AiRow[] = [
   { pattern: "/buildings/{slug}", jsonld: "missing", fresh: false, verdict: false, answerFirst: false, facts: 0.2, titleIntent: false },

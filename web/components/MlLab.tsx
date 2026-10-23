@@ -5,7 +5,7 @@ import type { Audit } from "@/lib/mock";
 import { fmt } from "@/lib/mock";
 
 // Categorical colors for clusters (distinct in light and dark).
-const COLORS = ["#5b5bd6", "#1f9e89", "#d9822b", "#c2407a", "#3b82c4", "#7a8a2e"];
+const COLORS = ["#5b5bd6", "#1f9e89", "#d9822b", "#c2407a", "#3b82c4", "#7a8a2e", "#9b59b6", "#c0392b"];
 
 function rng(seed: number) {
   return () => {
@@ -15,6 +15,72 @@ function rng(seed: number) {
 }
 
 export function MlLab({ audit }: { audit: Audit }) {
+  return audit.live ? <LiveLab audit={audit} /> : <SampleLab audit={audit} />;
+}
+
+function LiveLab({ audit }: { audit: Audit }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const ml = audit.live!.ml;
+  const layouts = useMemo(() => {
+    const by = new Map<number, string[]>();
+    for (const p of ml.points) by.set(p.layout, [...(by.get(p.layout) ?? []), p.url]);
+    return [...by.entries()].sort((a, b) => (a[0] < 0 ? 1 : b[0] < 0 ? -1 : b[1].length - a[1].length));
+  }, [ml.points]);
+  const color = (layout: number) => (layout < 0 ? "var(--line-strong)" : COLORS[layout % COLORS.length]);
+  const path = (u: string) => u.replace(/^https?:\/\/[^/]+/, "") || "/";
+
+  return (
+    <div className="mt-6 space-y-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="Layouts found" value={String(ml.layouts)} note="HDBSCAN clusters of page structure" />
+        <Metric label="Pages clustered" value={String(ml.pages)} note="sampled across every URL pattern" />
+        <Metric label="Unclustered pages" value={String(ml.noise)} note="kept with their URL pattern" />
+        <Metric label="Templates" value={String(audit.templates.length)} note="after splitting and merging" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="card p-4">
+          <div className="mb-1 text-sm font-medium">Template map</div>
+          <p className="text-xs text-[var(--muted)]">
+            Each dot is a crawled page, placed by t-SNE from its structure distance (tag paths + heading skeleton, MinHash). Colors are HDBSCAN layouts; grey dots didn't join a cluster.
+          </p>
+          {ml.points.length ? (
+            <svg viewBox="-3 -3 106 106" className="mt-3 aspect-square max-h-[420px] w-full" role="img" aria-label="Scatter plot of crawled pages grouped into layout clusters">
+              {ml.points.map((p, i) => (
+                <circle key={i} cx={p.x} cy={p.y} r={hover !== null && hover !== p.layout ? 0.9 : 1.4}
+                  fill={color(p.layout)} opacity={hover !== null && hover !== p.layout ? 0.15 : 0.9}>
+                  <title>{path(p.url)}</title>
+                </circle>
+              ))}
+            </svg>
+          ) : (
+            <p className="mt-6 text-sm text-[var(--muted)]">Too few pages to draw a map.</p>
+          )}
+        </div>
+        <ul className="card max-h-[480px] divide-y divide-[var(--line)] self-start overflow-y-auto">
+          {layouts.map(([layout, urls]) => (
+            <li key={layout} onMouseEnter={() => setHover(layout)} onMouseLeave={() => setHover(null)} className="cursor-default px-3 py-2.5 text-sm hover:bg-[var(--sunken)]">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color(layout) }} />
+                <span className="flex-1">{layout < 0 ? "Unclustered" : `Layout ${layout + 1}`}</span>
+                <span className="mono text-xs text-[var(--muted)]">{urls.length} pages</span>
+              </div>
+              <div className="mono mt-1 truncate pl-4.5 text-[11px] text-[var(--faint)]">{path(urls[0])}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Explain title="How templates are found" body="URL paths become patterns ({id}, {slug}). Pages are fingerprinted by shallow tag paths and their heading skeleton, compared with MinHash, and clustered with HDBSCAN. URL patterns hiding two layouts are split; sibling patterns sharing one are merged." />
+        <Explain title="How sampling works" body="Sitemaps are sampled fairly across every file family and weighted back up. Each template keeps five representative pages: longest, shortest, newest, most unique, and one more." />
+        <Explain title="Evals" body="Clustering accuracy (ARI) and judge agreement (Cohen's κ) are measured on a labelled set of sites. Those numbers appear here once the eval set is built." />
+      </div>
+    </div>
+  );
+}
+
+function SampleLab({ audit }: { audit: Audit }) {
   const [hover, setHover] = useState<string | null>(null);
 
   const points = useMemo(() => {

@@ -71,3 +71,34 @@ def test_generators():
     assert "User-agent: PerplexityBot" in r.split("Allow: /")[0]  # retrieval bots go in the allowed block
     assert "User-agent: GPTBot\nDisallow: /" in r  # training choice is kept
     assert r.strip().endswith("Sitemap: https://s.example/sitemap.xml")
+
+
+async def test_discover_by_links_without_sitemap(monkeypatch):
+    import httpx
+
+    from app.ingest.discover import candidate_sitemaps, discover_by_links
+    from app.ingest.robots import RobotsInfo
+    from app.net import safe_fetch
+
+    async def fake_resolve(host):
+        return "93.184.216.34"
+
+    monkeypatch.setattr(safe_fetch, "resolve_public", fake_resolve)
+    pages = {
+        "/": '<a href="/docs/a">a</a><a href="/blog/x">x</a><a href="/docs/b?q=1">skip query</a>',
+        "/docs/a": '<a href="/docs/b">b</a><a href="https://other.example/">off-site</a>',
+        "/blog/x": '<a href="/blog/y">y</a>',
+    }
+
+    def handler(request):
+        body = pages.get(request.url.path)
+        if body is None:
+            return httpx.Response(200, html="<html><body>leaf</body></html>")
+        return httpx.Response(200, html=f"<html><body><main>{body}</main></body></html>")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        found = await discover_by_links(client, "https://s.example", RobotsInfo(url="", found=False, status=404))
+    locs = {u.loc for u in found}
+    assert {"https://s.example/docs/a", "https://s.example/blog/x", "https://s.example/docs/b", "https://s.example/blog/y"} <= locs
+    assert not any("other.example" in u or "?" in u for u in locs)
+    assert candidate_sitemaps("https://s.example/any")[0] == "https://s.example/sitemap.xml"

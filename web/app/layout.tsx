@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ThemeToggle, THEME_SCRIPT } from "@/components/ThemeToggle";
 import { Wordmark } from "@/components/Logo";
+import { NewAuditButton } from "@/components/NewAudit";
 import "./globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
@@ -37,7 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="flex items-center gap-4 text-sm text-[var(--muted)] sm:gap-5">
               <Link href="/#modules" className="hidden hover:text-[var(--text)] sm:inline">Modules</Link>
               <Link href="/#samples" className="hover:text-[var(--text)]">Samples</Link>
-              <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="hover:text-[var(--text)]">GitHub</a>
+              <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="hidden hover:text-[var(--text)] sm:inline">GitHub</a>
+              <NewAuditButton />
               <ThemeToggle />
             </nav>
           </div>
