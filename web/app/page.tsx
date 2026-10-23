@@ -95,7 +95,7 @@ export default function Home() {
       <section className="mx-auto grid max-w-[1280px] items-center gap-12 px-4 pb-16 pt-16 lg:grid-cols-[minmax(0,1fr)_560px] lg:pt-24">
         <div>
           <div className="flex flex-wrap gap-2">
-            <span className="pill bg-[var(--accent-soft)] text-[var(--accent)]">For programmatic SEO sites</span>
+            <span className="pill bg-[var(--accent-soft)] text-[var(--accent)]">SEO + GEO site auditor</span>
             <span className="pill sev-low">Open source · MIT</span>
           </div>
           <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl">
