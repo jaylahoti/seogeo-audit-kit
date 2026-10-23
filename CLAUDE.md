@@ -8,7 +8,8 @@ Full scope: `FEATURES.md`.
   running/done events streamed over SSE (`GET /audits/{id}/events`).
   - `app/net/safe_fetch.py` — the ONLY way to fetch user-supplied URLs (SSRF guard, IP pinning, size caps).
   - `app/ingest/` — robots.txt (incl. AI-crawler policy), llms.txt, sitemaps (family-aware sampling + weights).
-  - `app/ml/url_patterns.py` — template detection signal 1 (URL structure). Signal 2 (DOM MinHash + HDBSCAN) is next.
+  - `app/ml/` — template detection: URL patterns (signal 1) and page structure, MinHash + HDBSCAN (signal 2).
+  - `app/checks/` — page parser, sampling, technical SEO and AI-readiness checks, scoring.
   - `app/store.py` — in-memory store; Postgres replaces it behind the same interface.
 - `web/` Next.js 15 + Tailwind v4 UI. Currently renders sample data from `lib/mock.ts`.
 
