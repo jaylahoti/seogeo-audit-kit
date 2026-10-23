@@ -140,11 +140,17 @@ async def _pipeline(rec: AuditRecord, client) -> None:
         s["detail"] = (
             f"No sitemap — found {len(sm.urls):,} pages by following links from the home page"
             if source == "links" else
-            f"{len(sm.sitemaps_read)} sitemap(s) · {len(sm.urls):,} URLs sampled of ~{sm.estimated_total:,}"
+            f"~{sm.estimated_total:,} pages, estimated from {sm.leaves_read} of {sm.leaves_total} sitemap files"
+            f" · {len(sm.urls):,} URLs sampled"
+            if sm.leaves_read < sm.leaves_total else
+            f"{sm.estimated_total:,} pages counted from all {sm.leaves_total} sitemap file(s) · {len(sm.urls):,} URLs sampled"
         )
         rec.result["sitemap"] = {
             "source": source,
             "start": start,
+            "leaves_total": sm.leaves_total,
+            "leaves_read": sm.leaves_read,
+            "families": [asdict(f) for f in sm.families],
             "sitemaps_read": sm.sitemaps_read,
             "urls_sampled": len(sm.urls),
             "urls_estimated": sm.estimated_total,

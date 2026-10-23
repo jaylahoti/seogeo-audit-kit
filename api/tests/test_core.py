@@ -125,6 +125,9 @@ async def test_ingest_samples_every_sitemap(monkeypatch):
     assert patterns["/buildings/{slug}"] == 1000
     assert patterns["/landlords/{slug}"] == 100
     assert res.truncated
+    fams = {f.family: f for f in res.families}
+    assert fams["/a.xml"].urls_listed == 1000 and fams["/a.xml"].estimated == 1000
+    assert fams["/b.xml.gz"].files_read == 1 and res.leaves_total == 2 and res.leaves_read == 2
 
 
 # --- template detection -----------------------------------------------------

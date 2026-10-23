@@ -75,8 +75,11 @@ export type RenderDiffLive = {
   js_text_share: number; error: string | null;
 };
 
+export type FamilyStat = { family: string; files_total: number; files_read: number; urls_listed: number; urls_sampled: number; estimated: number };
+
 export type LiveExtras = {
   sitemapSource: "sitemap" | "links";
+  pageCount: { leavesTotal: number; leavesRead: number; urlsSampled: number; families: FamilyStat[] };
   robots: { found: boolean; sitemaps: string[]; ai_crawlers: { agent: string; kind: string; allowed: boolean }[]; blocked_retrieval_bots: string[] };
   llmsTxt: { found: boolean; title: string | null; sections: string[]; links: number; issues: string[] };
   render: RenderDiffLive[];

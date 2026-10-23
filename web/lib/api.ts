@@ -93,6 +93,12 @@ export function toAudit(a: ApiAudit): Audit {
 
   const live: LiveExtras = {
     sitemapSource: r.sitemap?.source === "links" ? "links" : "sitemap",
+    pageCount: {
+      leavesTotal: r.sitemap?.leaves_total ?? 0,
+      leavesRead: r.sitemap?.leaves_read ?? 0,
+      urlsSampled: r.sitemap?.urls_sampled ?? 0,
+      families: r.sitemap?.families ?? [],
+    },
     robots: r.robots ?? { found: false, sitemaps: [], ai_crawlers: [], blocked_retrieval_bots: [] },
     llmsTxt: r.llms_txt ?? { found: false, title: null, sections: [], links: 0, issues: [] },
     render: r.render ?? [],

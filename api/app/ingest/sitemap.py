@@ -28,8 +28,21 @@ class SitemapIssue:
 
 
 @dataclass
+class FamilyStat:
+    family: str  # e.g. "/sitemap_apartments__#.xml"
+    files_total: int  # child sitemaps in this family listed by the index
+    files_read: int  # of those, downloaded successfully
+    urls_listed: int  # URLs listed in the files that were read
+    urls_sampled: int  # URLs kept for the audit
+    estimated: int  # estimated URLs across every file in the family
+
+
+@dataclass
 class SitemapResult:
     urls: list[SitemapURL] = field(default_factory=list)
+    families: list[FamilyStat] = field(default_factory=list)
+    leaves_total: int = 0  # URL-list sitemaps found (excluding indexes)
+    leaves_read: int = 0
     sitemaps_read: list[str] = field(default_factory=list)
     issues: list[SitemapIssue] = field(default_factory=list)
     truncated: bool = False  # True when we sampled instead of reading everything
@@ -168,15 +181,14 @@ async def ingest_sitemaps(
     if len(picked) < len(leaves):
         result.truncated = True
     fam_total: dict[str, int] = {}
-    fam_read: dict[str, int] = {}
     for leaf in leaves:
         fam_total[family(leaf)] = fam_total.get(family(leaf), 0) + 1
-    for leaf in picked:
-        fam_read[family(leaf)] = fam_read.get(family(leaf), 0) + 1
+    result.leaves_total = len(leaves)
 
     # 3. Read and sample each picked leaf.
     share = max(1, max_urls // max(1, len(picked)))
     seen_urls: set[str] = set()
+    read: list[tuple[str, int, list[SitemapURL]]] = []  # (family, URLs listed, URLs kept)
     for leaf in picked:
         entries = preloaded.pop(leaf, None)
         if entries is None:
@@ -194,15 +206,32 @@ async def ingest_sitemaps(
         kept = _spread(on_host, share)
         if len(kept) < len(on_host):
             result.truncated = True
-        fam = family(leaf)
-        weight = (len(on_host) / len(kept) if kept else 1.0) * (fam_total[fam] / fam_read[fam])
         for e in kept:
             seen_urls.add(e.loc)
-            e.weight = weight
+            e.weight = len(on_host) / len(kept) if kept else 1.0
             result.urls.append(e)
+        read.append((family(leaf), len(on_host), kept))
         if on_progress:
             await on_progress(len(result.urls), len(result.sitemaps_read))
 
+    # Scale each family up by the files that actually loaded (failed downloads don't count).
+    fam_ok: dict[str, int] = {}
+    for fam, _, _ in read:
+        fam_ok[fam] = fam_ok.get(fam, 0) + 1
+    stats: dict[str, FamilyStat] = {}
+    for fam, listed, kept in read:
+        factor = fam_total.get(fam, 1) / fam_ok[fam]
+        for e in kept:
+            e.weight *= factor
+        st = stats.setdefault(fam, FamilyStat(fam, fam_total.get(fam, 1), fam_ok[fam], 0, 0, 0))
+        st.urls_listed += listed
+        st.urls_sampled += len(kept)
+        st.estimated += round(listed * factor)
+    for fam, total in fam_total.items():  # families whose files all failed or weren't picked
+        if fam not in stats:
+            stats[fam] = FamilyStat(fam, total, 0, 0, 0, 0)
+    result.families = sorted(stats.values(), key=lambda f: -f.estimated)
+    result.leaves_read = len(read)
     return result
 
 

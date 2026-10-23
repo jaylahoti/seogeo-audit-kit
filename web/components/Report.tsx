@@ -157,6 +157,80 @@ function SampleBanner({ id }: { id: string }) {
   );
 }
 
+function countMethod(audit: Audit): string {
+  const L = audit.live!;
+  const pc = L.pageCount;
+  if (L.sitemapSource === "links") return `Found by following links · no sitemap`;
+  if (pc.leavesRead < pc.leavesTotal) return `Estimated from ${pc.leavesRead} of ${pc.leavesTotal} sitemap files`;
+  return `Counted from all ${pc.leavesTotal} sitemap file${pc.leavesTotal === 1 ? "" : "s"}`;
+}
+
+const prettyFamily = (f: string) => f.replace(/^\//, "").replace(/#/g, "{n}");
+
+function PageCount({ audit }: { audit: Audit }) {
+  const L = audit.live!;
+  const pc = L.pageCount;
+  if (L.sitemapSource === "links") {
+    return (
+      <details className="card group p-4">
+        <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
+          How pages were counted <span className="text-[var(--faint)] transition group-open:rotate-45">+</span>
+        </summary>
+        <p className="mt-2 text-sm text-[var(--muted)]">
+          This site has no sitemap (none listed in robots.txt or at the usual paths), so pages were found by following links from the home page.
+          {" "}{fmt(audit.urls)} pages were found; the site may have more that aren't linked within a few clicks.
+        </p>
+      </details>
+    );
+  }
+  const sampled = pc.leavesRead < pc.leavesTotal;
+  return (
+    <details className="card group p-4">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm">
+        <span>
+          <span className="font-medium">How pages were counted</span>
+          <span className="ml-2 text-[var(--muted)]">
+            {sampled
+              ? `~${fmt(audit.urls)} pages, estimated from ${pc.leavesRead} of ${pc.leavesTotal} sitemap files · ${fmt(pc.urlsSampled)} URLs sampled`
+              : `${fmt(audit.urls)} pages from all ${pc.leavesTotal} sitemap files · ${fmt(pc.urlsSampled)} URLs sampled`}
+          </span>
+        </span>
+        <span className="text-[var(--faint)] transition group-open:rotate-45">+</span>
+      </summary>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[420px] text-sm">
+          <thead className="whitespace-nowrap text-left text-xs text-[var(--faint)]">
+            <tr>
+              <th className="py-2 font-normal">Sitemap family</th>
+              <th className="font-normal">Files read</th>
+              <th className="text-right font-normal">URLs in files read</th>
+              <th className="hidden text-right font-normal sm:table-cell">Sampled</th>
+              <th className="text-right font-normal">Estimated pages</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--line)]">
+            {pc.families.map((f) => (
+              <tr key={f.family}>
+                <td className="mono max-w-[160px] truncate py-2 pr-4 text-xs sm:max-w-[260px]" title={prettyFamily(f.family)}>{prettyFamily(f.family)}</td>
+                <td className="mono whitespace-nowrap text-xs">{f.files_read} of {f.files_total}</td>
+                <td className="mono text-right text-xs">{fmt(f.urls_listed)}</td>
+                <td className="mono hidden text-right text-xs sm:table-cell">{fmt(f.urls_sampled)}</td>
+                <td className="mono text-right text-xs font-medium">{f.files_read ? `${f.files_read < f.files_total ? "~" : ""}${fmt(f.estimated)}` : "not read"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs text-[var(--faint)]">
+        {sampled
+          ? "Child sitemaps are grouped into families by name. Files are read across every family, and each family's count is scaled up: URLs in the files read × (files in the family ÷ files read). This assumes unread files in a family are about the size of the ones read — true for numbered files that fill to the same limit."
+          : "Every sitemap file was read, so these are exact counts. Only a sample of URLs is used for the checks, since a template's problems show up on a few pages."}
+        {" "}The audit itself checks about 5 representative pages per template.
+      </p>
+    </details>
+  );
+}
+
 function liveSummary(audit: Audit, id: string): string | null {
   const L = audit.live;
   if (!L) return null;
@@ -223,7 +297,7 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
           <div className="card p-4">
             <div className="text-xs text-[var(--muted)]">{audit.live.sitemapSource === "links" ? "Pages found (no sitemap)" : "Pages in the sitemap"}</div>
             <div className="mt-1 text-2xl font-semibold">{audit.live.sitemapSource === "links" ? "" : "~"}{fmt(audit.urls)}</div>
-            <div className="text-xs text-[var(--faint)]">{audit.templates.length} templates · {audit.live.crawl.ok} pages crawled</div>
+            <div className="text-xs text-[var(--faint)]">{countMethod(audit)}</div>
           </div>
         ) : (
           <div className="card p-4">
@@ -242,6 +316,8 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
           </div>
         </div>
       </div>
+
+      {audit.live && <PageCount audit={audit} />}
 
       {siteFindings.length > 0 && (
         <section>
