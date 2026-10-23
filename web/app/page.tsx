@@ -29,7 +29,7 @@ const REPLACES = [
 ];
 
 const STEPS = [
-  ["Read the sitemap", "Up to 5,000 URLs, sampled fairly across every sitemap file. robots.txt respected."],
+  ["Read the sitemap", "Smart sampling across every sitemap family, scaled back up to estimate pages per template. robots.txt respected."],
   ["Find the templates", "URL patterns plus page structure, clustered with HDBSCAN."],
   ["Check a sample", "Rule checks, Core Web Vitals, and Claude reading 5 pages per template."],
   ["Rank the fixes", "By pages covered × severity, each with the code to fix it."],
@@ -43,6 +43,7 @@ const RUNS_WHERE: { access: Access; text: string }[] = [
 ];
 
 const FAQ = [
+  ["Do you check every page?", "No — and you don't need to. Pages built from one template share its problems, so the audit uses smart sampling: it reads a fair sample of your sitemap files across every family and checks about 5 representative pages per template. The report shows exactly how pages were counted, and \u201cCount every page\u201d reads every sitemap file when you need the exact number. On a 1.3M-page site the estimate was within 1% of the full count."],
   ["Why per template?", "A programmatic site has thousands of pages but only a handful of templates. Fix the template and every page built from it is fixed — so that's the unit worth reporting on."],
   ["What does an audit cost?", "About $0.11 in Claude usage, paid by the hosted demo. Rules and ML run first for free; Claude only reads 30 sample pages."],
   ["Which parts need my own keys?", "Tracking ChatGPT, Perplexity, Gemini and Copilot citations. Everything else runs on Claude or free Google and Bing APIs."],

@@ -18,6 +18,7 @@ from app.checks.links import check_links
 from app.checks.page_facts import extract
 from app.checks.render import compare, render_html
 from app.checks.render import findings as render_findings
+from app.config import settings
 from app.crawl.crawler import crawl
 from app.fixes.generators import generate_llms_txt, generate_robots_txt
 from app.ingest.discover import candidate_sitemaps, discover_by_links
@@ -168,7 +169,7 @@ async def _pipeline(rec: AuditRecord, client) -> None:
     async with stage(rec, "crawl", "Crawl sample pages") as s:
         to_crawl: list[tuple[int, str]] = []
         for ti, t in enumerate(templates):
-            for u in _spread(t.urls, CRAWL_PER_TEMPLATE):
+            for u in _spread(t.urls, settings.crawl_per_template):
                 to_crawl.append((ti, u.loc))
         to_crawl = to_crawl[:MAX_CRAWL]
 
@@ -316,7 +317,7 @@ def _base_checks(templates: list[Template], facts: dict) -> list[_TemplateState]
     for t in templates:
         mine = [facts[u.loc] for u in t.urls if u.loc in facts]
         lastmods = {u.loc: u.lastmod for u in t.urls}
-        samples = pick_samples([f for f in mine if f.status == 200], lastmods, n=5)
+        samples = pick_samples([f for f in mine if f.status == 200], lastmods, n=settings.samples_per_template)
         samples += [f for f in mine if f.status != 200]  # keep error pages for status checks
         ctx = TemplateContext(t.pattern, t.estimated_pages, samples, lastmods)
         out.append(_TemplateState(t, samples, seo_checks.run(ctx) + ai_checks.run(ctx)))
@@ -365,7 +366,6 @@ def _finalize(state: list[_TemplateState], result: dict) -> list[dict]:
     return out
 
 
-CRAWL_PER_TEMPLATE = 6
 MAX_CRAWL = 200
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Audit, Finding, Template } from "@/lib/mock";
 import { fmt, SAMPLE_AUDIT } from "@/lib/mock";
 import { MODULES } from "@/lib/modules";
@@ -11,6 +11,8 @@ import { MlLab } from "@/components/MlLab";
 import { AccessBadge, ModuleHead } from "@/components/ui";
 import { CommandPalette } from "@/components/CommandPalette";
 import { RerunButton } from "@/components/NewAudit";
+import { useReportRefresh } from "@/components/RefreshContext";
+import { startCount } from "@/lib/api";
 import { AiReadiness, CoreWebVitals, Fixes, TechnicalSeo, WhatAiSees } from "@/components/modules/Audit";
 import { AiTraffic, Bing } from "@/components/modules/Connect";
 import { AiCrawlers, AiVisibility, CiMcp, Monitoring, QuestionGaps } from "@/components/modules/Track";
@@ -45,7 +47,7 @@ export function Report({ audit }: { audit: Audit }) {
             <span>Ran {new Date(audit.ranAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" })} UTC</span>
           </div>
           <h1 className="mt-2 text-2xl font-semibold">{audit.site}</h1>
-          <p className="mono mt-0.5 text-xs text-[var(--muted)]">{audit.sitemap} · {audit.live && audit.live.sitemapSource === "sitemap" && audit.live.pageCount.leavesRead < audit.live.pageCount.leavesTotal ? `~${fmt(audit.urls)} pages (estimated)` : `${fmt(audit.urls)} pages`} · {audit.templates.length} templates</p>
+          <p className="mono mt-0.5 text-xs text-[var(--muted)]">{audit.sitemap} · {audit.live && audit.live.sitemapSource === "sitemap" && audit.live.exactCount?.status !== "done" && audit.live.pageCount.leavesRead < audit.live.pageCount.leavesTotal ? `~${fmt(audit.urls)} pages (estimated) · smart sampling` : `${fmt(audit.urls)} pages`} · {audit.templates.length} templates</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -161,7 +163,8 @@ function countMethod(audit: Audit): string {
   const L = audit.live!;
   const pc = L.pageCount;
   if (L.sitemapSource === "links") return `Found by following links · no sitemap`;
-  if (pc.leavesRead < pc.leavesTotal) return `Estimated from ${pc.leavesRead} of ${pc.leavesTotal} sitemap files`;
+  if (L.exactCount?.status === "done") return `Exact count from all ${fmt(L.exactCount.files_total)} sitemap files`;
+  if (pc.leavesRead < pc.leavesTotal) return `Smart sampling · estimated from ${pc.leavesRead} of ${pc.leavesTotal} sitemap files`;
   return `Counted from all ${pc.leavesTotal} sitemap file${pc.leavesTotal === 1 ? "" : "s"}`;
 }
 
@@ -170,6 +173,24 @@ const prettyFamily = (f: string) => f.replace(/^\//, "").replace(/#/g, "{n}");
 function PageCount({ audit }: { audit: Audit }) {
   const L = audit.live!;
   const pc = L.pageCount;
+  const ex = L.exactCount;
+  const refresh = useReportRefresh();
+  const [starting, setStarting] = useState(false);
+  const [err, setErr] = useState("");
+
+  // While counting, poll the API and refresh the report when it's done.
+  useEffect(() => {
+    if (ex?.status !== "running") return;
+    const timer = setInterval(() => { refresh(); }, 1500);
+    return () => clearInterval(timer);
+  }, [ex?.status, refresh]);
+
+  async function count() {
+    setStarting(true); setErr("");
+    try { await startCount(audit.id); await refresh(); } catch (e) { setErr(e instanceof Error ? e.message : "Couldn't start counting"); }
+    setStarting(false);
+  }
+
   if (L.sitemapSource === "links") {
     return (
       <details className="card group p-4">
@@ -183,49 +204,80 @@ function PageCount({ audit }: { audit: Audit }) {
       </details>
     );
   }
+
   const sampled = pc.leavesRead < pc.leavesTotal;
+  const done = ex?.status === "done";
+  const diff = done && pc.estimatedTotal ? (pc.estimatedTotal - ex!.urls) / ex!.urls : null;
+  const summary = done
+    ? `${fmt(ex!.urls)} pages, counted from all ${fmt(ex!.files_total)} sitemap files`
+    : sampled
+      ? `~${fmt(pc.estimatedTotal)} pages · smart sampling: ${pc.leavesRead} of ${pc.leavesTotal} sitemap files read · ${fmt(pc.urlsSampled)} URLs sampled`
+      : `${fmt(pc.estimatedTotal)} pages from all ${pc.leavesTotal} sitemap files · ${fmt(pc.urlsSampled)} URLs sampled`;
+
   return (
-    <details className="card group p-4">
+    <details className="card group p-4" open={ex?.status === "running" || undefined}>
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm">
-        <span>
-          <span className="font-medium">How pages were counted</span>
-          <span className="ml-2 text-[var(--muted)]">
-            {sampled
-              ? `~${fmt(audit.urls)} pages, estimated from ${pc.leavesRead} of ${pc.leavesTotal} sitemap files · ${fmt(pc.urlsSampled)} URLs sampled`
-              : `${fmt(audit.urls)} pages from all ${pc.leavesTotal} sitemap files · ${fmt(pc.urlsSampled)} URLs sampled`}
-          </span>
-        </span>
+        <span><span className="font-medium">How pages were counted</span><span className="ml-2 text-[var(--muted)]">{summary}</span></span>
         <span className="text-[var(--faint)] transition group-open:rotate-45">+</span>
       </summary>
+
+      {sampled && !done && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--sunken)] px-3 py-2.5 text-sm">
+          {ex?.status === "running" ? (
+            <div className="min-w-0 flex-1">
+              <div>Counting every page… {fmt(ex.files_done)} of {fmt(Math.max(ex.files_total, pc.leavesTotal))} files · {fmt(ex.urls)} URLs so far</div>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-[var(--line)]">
+                <div className="h-full rounded-full bg-[var(--accent)] transition-all" style={{ width: `${Math.min(100, (ex.files_done / Math.max(1, ex.files_total, pc.leavesTotal)) * 100)}%` }} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <span className="text-[var(--muted)]">
+                {ex?.status === "error" ? <span className="text-[var(--bad)]">{ex.error}</span> : "Need the exact number? Read every sitemap file (counts only — the findings don't change)."}
+              </span>
+              <button className="btn" onClick={count} disabled={starting}>{starting ? "Starting…" : "Count every page"}</button>
+            </>
+          )}
+          {err && <span className="w-full text-xs text-[var(--bad)]">{err}</span>}
+        </div>
+      )}
+
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[420px] text-sm">
           <thead className="whitespace-nowrap text-left text-xs text-[var(--faint)]">
             <tr>
               <th className="py-2 font-normal">Sitemap family</th>
               <th className="font-normal">Files read</th>
-              <th className="text-right font-normal">URLs in files read</th>
               <th className="hidden text-right font-normal sm:table-cell">Sampled</th>
-              <th className="text-right font-normal">Estimated pages</th>
+              <th className="text-right font-normal">{done ? "Estimated" : "Estimated pages"}</th>
+              {done && <th className="text-right font-normal">Exact</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--line)]">
-            {pc.families.map((f) => (
-              <tr key={f.family}>
-                <td className="mono max-w-[160px] truncate py-2 pr-4 text-xs sm:max-w-[260px]" title={prettyFamily(f.family)}>{prettyFamily(f.family)}</td>
-                <td className="mono whitespace-nowrap text-xs">{f.files_read} of {f.files_total}</td>
-                <td className="mono text-right text-xs">{fmt(f.urls_listed)}</td>
-                <td className="mono hidden text-right text-xs sm:table-cell">{fmt(f.urls_sampled)}</td>
-                <td className="mono text-right text-xs font-medium">{f.files_read ? `${f.files_read < f.files_total ? "~" : ""}${fmt(f.estimated)}` : "not read"}</td>
-              </tr>
-            ))}
+            {pc.families.map((f) => {
+              const exactFam = ex?.families[f.family];
+              return (
+                <tr key={f.family}>
+                  <td className="mono max-w-[160px] truncate py-2 pr-4 text-xs sm:max-w-[260px]" title={prettyFamily(f.family)}>{prettyFamily(f.family)}</td>
+                  <td className="mono whitespace-nowrap text-xs">
+                    {f.files_read} of {f.files_total}
+                    {!done && f.files_read < f.files_total && <span className="block text-[10px] text-[var(--faint)]">{f.files_total - f.files_read} estimated</span>}
+                  </td>
+                  <td className="mono hidden text-right text-xs sm:table-cell">{fmt(f.urls_sampled)}</td>
+                  <td className={`mono text-right text-xs ${done ? "text-[var(--muted)]" : "font-medium"}`}>{f.files_read ? `${f.files_read < f.files_total ? "~" : ""}${fmt(f.estimated)}` : "not read"}</td>
+                  {done && <td className="mono text-right text-xs font-medium">{exactFam ? fmt(exactFam.urls) : "—"}</td>}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       <p className="mt-3 text-xs text-[var(--faint)]">
-        {sampled
-          ? "Child sitemaps are grouped into families by name. Files are read across every family, and each family's count is scaled up: URLs in the files read × (files in the family ÷ files read). This assumes unread files in a family are about the size of the ones read — true for numbered files that fill to the same limit."
-          : "Every sitemap file was read, so these are exact counts. Only a sample of URLs is used for the checks, since a template's problems show up on a few pages."}
-        {" "}The audit itself checks about 5 representative pages per template.
+        {done
+          ? `Exact count from every sitemap file. The smart-sampling estimate was ${fmt(pc.estimatedTotal)} — ${diff != null ? `${Math.abs(diff * 100).toFixed(1)}% ${diff >= 0 ? "high" : "low"}` : "close"}. Template page counts and “fix covers” numbers now use the exact count.`
+          : sampled
+            ? "Smart sampling: pages built from one template share its problems, so the audit reads a fair sample of sitemap files across every family and checks about 5 representative pages per template. Each family's count is scaled up — URLs in the files read × (files in the family ÷ files read) — assuming unread files are about the size of the ones read, which holds for numbered files that fill to the same limit."
+            : "Every sitemap file was read, so these are exact counts. Only a sample of URLs is used for the checks, since a template's problems show up on a few pages."}
       </p>
     </details>
   );
@@ -296,7 +348,7 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
         {audit.live ? (
           <div className="card p-4">
             <div className="text-xs text-[var(--muted)]">{audit.live.sitemapSource === "links" ? "Pages found (no sitemap)" : "Pages in the sitemap"}</div>
-            <div className="mt-1 text-2xl font-semibold">{audit.live.sitemapSource === "links" ? "" : "~"}{fmt(audit.urls)}</div>
+            <div className="mt-1 text-2xl font-semibold">{audit.live.sitemapSource === "links" || audit.live.exactCount?.status === "done" || audit.live.pageCount.leavesRead >= audit.live.pageCount.leavesTotal ? "" : "~"}{fmt(audit.urls)}</div>
             <div className="text-xs text-[var(--faint)]">{countMethod(audit)}</div>
           </div>
         ) : (

@@ -102,3 +102,46 @@ async def test_discover_by_links_without_sitemap(monkeypatch):
     assert {"https://s.example/docs/a", "https://s.example/blog/x", "https://s.example/docs/b", "https://s.example/blog/y"} <= locs
     assert not any("other.example" in u or "?" in u for u in locs)
     assert candidate_sitemaps("https://s.example/any")[0] == "https://s.example/sitemap.xml"
+
+
+async def test_count_all_reads_every_file(monkeypatch):
+    import gzip
+
+    import httpx
+
+    from app.ingest.count import ExactCount, count_all
+    from app.net import safe_fetch
+
+    async def fake_resolve(host):
+        return "93.184.216.34"
+
+    monkeypatch.setattr(safe_fetch, "resolve_public", fake_resolve)
+
+    def index(*locs):
+        rows = "".join(f"<sitemap><loc>https://s.example{u}</loc></sitemap>" for u in locs)
+        return f'<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{rows}</sitemapindex>'.encode()
+
+    def urlset(paths):
+        rows = "".join(f"<url><loc>https://s.example{p}</loc></url>" for p in paths)
+        return f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{rows}</urlset>'.encode()
+
+    files = {
+        "/sitemap.xml": index("/b-1.xml", "/b-2.xml", "/nested.xml"),
+        "/nested.xml": index("/blog.xml.gz"),
+        "/b-1.xml": urlset([f"/buildings/x{i}" for i in range(300)]),
+        "/b-2.xml": urlset([f"/buildings/y{i}" for i in range(200)] + ["/about"]),
+        "/blog.xml.gz": gzip.compress(urlset([f"/blog/p{i}" for i in range(40)])),
+    }
+
+    def handler(request):
+        body = files.get(request.url.path)
+        return httpx.Response(200, content=body) if body else httpx.Response(404)
+
+    state = ExactCount()
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        await count_all(client, ["https://s.example/sitemap.xml"], ["/buildings/{slug}", "/blog/{slug}", "/{static}"], state)
+    assert state.status == "done" and state.files_total == 3 and state.files_failed == 0
+    assert state.urls == 541
+    assert state.templates == {"/buildings/{slug}": 500, "/blog/{slug}": 40}
+    assert state.unmatched == 1  # /about
+    assert state.families["/b-#.xml"] == {"files": 2, "urls": 501}

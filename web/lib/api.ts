@@ -44,6 +44,14 @@ export async function createAudit(url: string): Promise<{ id: string }> {
   return body;
 }
 
+export async function startCount(id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/audits/${encodeURIComponent(id)}/count`, { method: "POST" });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(typeof body.detail === "string" ? body.detail : `The API returned ${res.status}`);
+  }
+}
+
 export async function getAudit(id: string): Promise<ApiAudit | null> {
   const res = await fetch(`${API_URL}/audits/${encodeURIComponent(id)}`, { cache: "no-store" });
   if (res.status === 404) return null;
@@ -98,7 +106,9 @@ export function toAudit(a: ApiAudit): Audit {
       leavesRead: r.sitemap?.leaves_read ?? 0,
       urlsSampled: r.sitemap?.urls_sampled ?? 0,
       families: r.sitemap?.families ?? [],
+      estimatedTotal: r.sitemap?.urls_estimated ?? 0,
     },
+    exactCount: r.exact_count ?? null,
     robots: r.robots ?? { found: false, sitemaps: [], ai_crawlers: [], blocked_retrieval_bots: [] },
     llmsTxt: r.llms_txt ?? { found: false, title: null, sections: [], links: 0, issues: [] },
     render: r.render ?? [],
@@ -110,6 +120,23 @@ export function toAudit(a: ApiAudit): Audit {
     crawl: r.crawl ?? { requested: 0, ok: 0, non_200: 0, errors: 0, blocked_by_robots: 0, avg_ms: 0 },
   };
 
+  // After "Count every page", swap estimates for exact counts (per template and in findings).
+  const exact = live.exactCount?.status === "done" ? live.exactCount : null;
+  if (exact) {
+    const base = (p: string) => p.replace(/ · layout \d+$/, "");
+    const estByBase: Record<string, number> = {};
+    for (const t of templates) estByBase[base(t.pattern)] = (estByBase[base(t.pattern)] ?? 0) + t.pages;
+    for (const t of templates) {
+      const b = base(t.pattern);
+      const counted = b === "/{static}" ? exact.unmatched : exact.templates[b];
+      if (counted == null || !estByBase[b]) continue;
+      const exactPages = Math.round(counted * (t.pages / estByBase[b])); // split layouts by their share
+      const factor = t.pages ? exactPages / t.pages : 1;
+      t.pages = exactPages;
+      t.findings = t.findings.map((f) => ({ ...f, pages: Math.max(1, Math.round(f.pages * factor)) }));
+    }
+  }
+
   let host = a.input_url;
   try { host = new URL(a.input_url).hostname; } catch { /* keep the raw input */ }
 
@@ -118,7 +145,7 @@ export function toAudit(a: ApiAudit): Audit {
     site: host,
     sitemap: r.sitemap?.start?.[0] ?? a.input_url,
     ranAt: new Date(a.created_at * 1000).toISOString(),
-    urls: r.sitemap?.urls_estimated ?? 0,
+    urls: exact ? exact.urls : r.sitemap?.urls_estimated ?? 0,
     scores: r.scores ?? { seo: 0, ai: 0 },
     cost: stagesDone.reduce((s, x) => s + x.cost, 0),
     naiveCost: 0,

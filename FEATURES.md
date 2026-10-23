@@ -12,6 +12,8 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 - ✅ SSRF-safe fetcher: private/metadata IPs blocked, every redirect re-checked, IP pinning, size caps
 - ✅ robots.txt: sitemap discovery, crawl permission
 - ✅ Sitemaps: indexes, gzip, family-aware sampling across numbered files, weighted page estimates
+- ✅ Smart sampling shown in the report (per-family breakdown) + "Count every page" for exact counts; limits configurable for self-hosting
+- ✅ No sitemap: common sitemap paths, then link discovery from the home page
 - ✅ Template detection, signal 1: URL patterns ({id}, {uuid}, {slug}, {date}), facet-sibling merge, absorption
 - ✅ Polite page crawler: robots.txt + Crawl-delay respected, per-host concurrency + pacing, timeouts
 - ✅ Template detection, signal 2: shallow tag paths + heading skeleton → MinHash → HDBSCAN → close-cluster merge; splits/merges URL patterns; t-SNE map for the ML Lab

@@ -77,9 +77,22 @@ export type RenderDiffLive = {
 
 export type FamilyStat = { family: string; files_total: number; files_read: number; urls_listed: number; urls_sampled: number; estimated: number };
 
+export type ExactCount = {
+  status: "running" | "done" | "error";
+  files_total: number;
+  files_done: number;
+  files_failed: number;
+  urls: number;
+  families: Record<string, { files: number; urls: number }>;
+  templates: Record<string, number>;
+  unmatched: number;
+  error: string | null;
+};
+
 export type LiveExtras = {
   sitemapSource: "sitemap" | "links";
-  pageCount: { leavesTotal: number; leavesRead: number; urlsSampled: number; families: FamilyStat[] };
+  pageCount: { leavesTotal: number; leavesRead: number; urlsSampled: number; families: FamilyStat[]; estimatedTotal: number };
+  exactCount: ExactCount | null;
   robots: { found: boolean; sitemaps: string[]; ai_crawlers: { agent: string; kind: string; allowed: boolean }[]; blocked_retrieval_bots: string[] };
   llmsTxt: { found: boolean; title: string | null; sections: string[]; links: number; issues: string[] };
   render: RenderDiffLive[];

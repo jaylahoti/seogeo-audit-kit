@@ -81,6 +81,32 @@ ID=$(curl -s -X POST localhost:8001/audits -H 'Content-Type: application/json' \
 curl -N localhost:8001/audits/$ID/events
 ```
 
+## Smart sampling and limits
+
+A template's problems repeat on every page built from it, so the audit doesn't need every
+page. It reads a fair sample of sitemap files across every family, keeps a spread of URLs
+from each, checks about 5 representative pages per template, and scales the counts back up.
+The report shows exactly how pages were counted, per sitemap family. On a 1.3M-page site the
+estimate was within 0.7% of a full count, and the audit took about 2.5 minutes.
+
+**Count every page** (on any report, or `POST /audits/{id}/count`) reads every sitemap file
+and replaces the estimates with exact counts. It only counts URLs, so the findings don't
+change and memory stays flat even for millions of pages.
+
+The hosted demo keeps the defaults below so audits stay fast and free. When self-hosting,
+raise them in `api/.env`:
+
+| Setting | Default | What it controls |
+|---|---|---|
+| `MAX_SITEMAPS` | `50` | Sitemap files read per audit; the rest of each family is estimated |
+| `MAX_URLS` | `5000` | Sitemap URLs kept for template detection |
+| `CRAWL_PER_TEMPLATE` | `6` | Pages fetched per URL pattern to detect layouts |
+| `SAMPLES_PER_TEMPLATE` | `5` | Pages each check runs on, per template |
+| `MAX_COUNT_FILES` | `2000` | Ceiling for "Count every page" |
+
+To audit one section in more depth, pass a single child sitemap (for example
+`https://example.com/sitemap_products_042.xml`) instead of the main one.
+
 ## Tests
 
 ```bash
