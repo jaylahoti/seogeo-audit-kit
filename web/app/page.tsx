@@ -46,16 +46,16 @@ const FAQ = [
   ["Why per template?", "A programmatic site has thousands of pages but only a handful of templates. Fix the template and every page built from it is fixed — so that's the unit worth reporting on."],
   ["What does an audit cost?", "About $0.11 in Claude usage, paid by the hosted demo. Rules and ML run first for free; Claude only reads 30 sample pages."],
   ["Which parts need my own keys?", "Tracking ChatGPT, Perplexity, Gemini and Copilot citations. Everything else runs on Claude or free Google and Bing APIs."],
-  ["Is my site safe to point this at?", "It only fetches public pages, identifies itself as TemplateScopeBot, respects robots.txt and Crawl-delay, and caps requests per host."],
+  ["Is my site safe to point this at?", "It only fetches public pages, identifies itself as SEOGEOAuditKitBot, respects robots.txt and Crawl-delay, and caps requests per host."],
 ];
 
 function HeroPreview() {
   const a = SAMPLE_AUDIT;
   return (
-    <div className="card overflow-hidden shadow-xl" aria-label="Preview of a TemplateScope report" role="img">
+    <div className="card overflow-hidden shadow-xl" aria-label="Preview of a SEOGEO Audit Kit report" role="img">
       <div className="flex items-center gap-1.5 border-b border-[var(--line)] px-3 py-2">
         <span className="h-2.5 w-2.5 rounded-full bg-[var(--line-strong)]" /><span className="h-2.5 w-2.5 rounded-full bg-[var(--line-strong)]" /><span className="h-2.5 w-2.5 rounded-full bg-[var(--line-strong)]" />
-        <span className="mono ml-2 truncate text-[11px] text-[var(--faint)]">templatescope.dev/report/{a.site}</span>
+        <span className="mono ml-2 truncate text-[11px] text-[var(--faint)]">seogeo-audit-kit.dev/report/{a.site}</span>
       </div>
       <div className="grid grid-cols-[120px_minmax(0,1fr)] text-left">
         <div className="hidden space-y-1 border-r border-[var(--line)] p-3 text-[11px] text-[var(--muted)] sm:block">
@@ -218,7 +218,7 @@ export default function Home() {
             </ul>
             <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="btn mt-6">View on GitHub →</a>
           </div>
-          <CodeBlock label=".github/workflows/templatescope.yml" code={GH_ACTION} />
+          <CodeBlock label=".github/workflows/seogeo-audit-kit.yml" code={GH_ACTION} />
         </div>
       </section>
 

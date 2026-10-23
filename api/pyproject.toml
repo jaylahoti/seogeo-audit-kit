@@ -1,5 +1,5 @@
 [project]
-name = "templatescope-api"
+name = "seogeo-audit-kit-api"
 version = "0.1.0"
 description = "Per-template SEO and AI-readiness audits for programmatic SEO sites"
 requires-python = ">=3.12"

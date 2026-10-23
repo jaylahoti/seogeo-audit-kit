@@ -1,4 +1,4 @@
-# TemplateScope — features
+# SEOGEO Audit Kit — features
 
 The SEO + GEO platform for programmatic sites: one tool instead of a crawler, a GEO tracker
 and an AI-visibility tool — and everything is reported **per template**, so one fix covers

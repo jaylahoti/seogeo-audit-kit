@@ -226,14 +226,14 @@ export const GAPS: Gap[] = [
 ];
 
 // --- Module 11: CI and MCP ---------------------------------------------------------
-export const GH_ACTION = `# .github/workflows/templatescope.yml
-name: TemplateScope
+export const GH_ACTION = `# .github/workflows/seogeo-audit-kit.yml
+name: SEOGEO Audit Kit
 on: [pull_request]
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: jaylahoti/templatescope-action@v1
+      - uses: jaylahoti/seogeo-audit-kit-action@v1
         with:
           url: \${{ steps.preview.outputs.url }}/sitemap.xml
           fail-on: "ai-readiness-drop>5,missing-jsonld"
@@ -241,9 +241,9 @@ jobs:
 
 export const MCP_CONFIG = `{
   "mcpServers": {
-    "templatescope": {
+    "seogeo-audit-kit": {
       "command": "uvx",
-      "args": ["templatescope-mcp"],
+      "args": ["seogeo-audit-kit-mcp"],
       "env": { "ANTHROPIC_API_KEY": "sk-ant-..." }
     }
   }

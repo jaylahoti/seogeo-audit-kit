@@ -4,9 +4,9 @@ services:
   postgres:
     image: postgres:16.4
     environment:
-      POSTGRES_USER: templatescope
-      POSTGRES_PASSWORD: templatescope
-      POSTGRES_DB: templatescope
+      POSTGRES_USER: seogeo
+      POSTGRES_PASSWORD: seogeo
+      POSTGRES_DB: seogeo
     ports: ["5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
   redis:

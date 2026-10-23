@@ -24,7 +24,7 @@ export function AiVisibility() {
         ))}
       </div>
       <Notice tone="key" title="ChatGPT, Perplexity, Gemini and Copilot columns are sample data">
-        TemplateScope is open source. Self-host it and add <span className="mono">OPENAI_API_KEY</span>, <span className="mono">PERPLEXITY_API_KEY</span> or <span className="mono">GEMINI_API_KEY</span> to track those engines with the same metrics: cited or not, position in the answer, and competitors cited instead.
+        SEOGEO Audit Kit is open source. Self-host it and add <span className="mono">OPENAI_API_KEY</span>, <span className="mono">PERPLEXITY_API_KEY</span> or <span className="mono">GEMINI_API_KEY</span> to track those engines with the same metrics: cited or not, position in the answer, and competitors cited instead.
       </Notice>
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="Cited by Claude" value={`${cited} / ${cells.length}`} note="answers that link the site" />
@@ -177,7 +177,7 @@ export function CiMcp() {
           <div className="text-sm font-medium">GitHub Action</div>
           <CodeBlock label="Fails the PR when a template regresses" code={GH_ACTION} />
           <div className="card p-3">
-            <div className="flex items-center gap-2 text-sm"><span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--bad-soft)] text-xs text-[var(--bad)]">✕</span><span className="font-medium">TemplateScope</span><span className="text-[var(--muted)]">— 1 template regressed</span></div>
+            <div className="flex items-center gap-2 text-sm"><span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--bad-soft)] text-xs text-[var(--bad)]">✕</span><span className="font-medium">SEOGEO Audit Kit</span><span className="text-[var(--muted)]">— 1 template regressed</span></div>
             <ul className="mono mt-2 space-y-1 pl-7 text-xs text-[var(--muted)]">
               <li>/buildings/{"{slug}"}: JSON-LD missing on 5/5 preview samples</li>
               <li>/buildings/{"{slug}"}: AI readiness 56 → 31 (limit −5)</li>

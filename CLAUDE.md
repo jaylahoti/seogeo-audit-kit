@@ -1,4 +1,4 @@
-# TemplateScope
+# SEOGEO Audit Kit
 
 Per-template SEO + AI-readiness (GEO) audits for programmatic SEO sites. Open source (MIT).
 Full scope: `FEATURES.md`.
@@ -14,7 +14,7 @@ Full scope: `FEATURES.md`.
 
 ## Rules
 - Never fetch a user URL with anything but `safe_get`. Never follow redirects outside it.
-- Respect robots.txt for page crawling. Identify as TemplateScopeBot.
+- Respect robots.txt for page crawling. Identify as SEOGEOAuditKitBot.
 - Never copy code, data, prompts, or internal docs from other companies' codebases into this repo
   (including the author's employer). Ideas and public best practices are fine; write everything fresh.
 - Every Claude call records model, tokens, cost and ms in the stage event. Keep costs visible.

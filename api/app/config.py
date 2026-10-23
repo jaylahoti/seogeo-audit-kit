@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     max_sitemap_bytes: int = 50_000_000  # sitemaps can legally be 50 MB uncompressed
     fetch_timeout_s: float = 15.0
     max_redirects: int = 5
-    user_agent: str = "TemplateScopeBot/0.1 (+https://github.com/jaylahoti/templatescope)"
+    user_agent: str = "SEOGEOAuditKitBot/0.1 (+https://github.com/jaylahoti/seogeo-audit-kit)"
     cors_origins: str = "http://localhost:3001"
 
 
