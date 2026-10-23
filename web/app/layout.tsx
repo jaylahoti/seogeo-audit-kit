@@ -1,11 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ThemeToggle, THEME_SCRIPT } from "@/components/ThemeToggle";
+import { Wordmark } from "@/components/Logo";
 import "./globals.css";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
+const DESCRIPTION = "Open-source SEO and GEO (AI search) audits for programmatic sites, reported per template.";
+
 export const metadata: Metadata = {
-  title: "SEOGEO Audit Kit",
-  description: "Open-source SEO and GEO audits for programmatic sites, reported per template.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: "SEOGEO Audit Kit — SEO and GEO audits per template", template: "%s · SEOGEO Audit Kit" },
+  description: DESCRIPTION,
+  applicationName: "SEOGEO Audit Kit",
+  authors: [{ name: "Jay Lahoti", url: "https://github.com/jaylahoti" }],
+  openGraph: { type: "website", siteName: "SEOGEO Audit Kit", title: "SEOGEO Audit Kit", description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: "SEOGEO Audit Kit", description: DESCRIPTION },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -22,9 +31,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="flex min-h-screen flex-col antialiased">
         <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--bg)]/85 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between gap-4 px-4">
-            <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
-              <span className="grid h-6 w-6 place-items-center rounded-md bg-[var(--text)] text-[11px] text-[var(--bg)]">SG</span>
-              SEOGEO Audit Kit
+            <Link href="/" aria-label="SEOGEO Audit Kit home">
+              <Wordmark />
             </Link>
             <nav className="flex items-center gap-4 text-sm text-[var(--muted)] sm:gap-5">
               <Link href="/#modules" className="hidden hover:text-[var(--text)] sm:inline">Modules</Link>
@@ -37,8 +45,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="flex-1">{children}</div>
         <footer className="border-t border-[var(--line)]">
           <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-[var(--faint)]">
-            <span>SEOGEO Audit Kit · open source, MIT license</span>
-            <span>Built by Jay Lahoti</span>
+            <span className="flex items-center gap-2"><Wordmark className="opacity-80" /><span>· open source, MIT</span></span>
+            <span>Built by <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="underline-offset-2 hover:text-[var(--text)] hover:underline">Jay Lahoti</a></span>
           </div>
         </footer>
       </body>
