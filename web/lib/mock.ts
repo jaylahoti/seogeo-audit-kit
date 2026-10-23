@@ -66,6 +66,7 @@ export type Audit = {
   stages: Stage[];
   ml: { ari: number; purity: number; kappa: number; judgeAgree: number; labelledSites: number };
   inputUrl?: string; // what the user typed (live audits), used by Re-run
+  geo?: GeoScore;
   live?: LiveExtras; // present on real audits from the API
 };
 
@@ -73,6 +74,15 @@ export type RenderDiffLive = {
   pattern: string; url: string; raw_words: number; rendered_words: number; raw_links: number;
   rendered_links: number; raw_jsonld: number; rendered_jsonld: number; js_only_headings: string[];
   js_text_share: number; error: string | null;
+};
+
+export type GeoSignal = { label: string; detail: string; impact: number };
+export type GeoScore = {
+  score: number | null;
+  partial: boolean;
+  access: { score: number; signals: GeoSignal[] };
+  readiness: { score: number | null; method?: string };
+  visibility: { score: number | null; reason?: string; engines?: { name: string; cited: number; asked: number; live: boolean }[] };
 };
 
 export type FamilyStat = { family: string; files_total: number; files_read: number; urls_listed: number; urls_sampled: number; estimated: number };
@@ -150,6 +160,28 @@ export const SAMPLE_AUDIT: Audit = {
   naiveCost: 38.4,
   durationSec: 94,
   ml: { ari: 0.91, purity: 0.94, kappa: 0.78, judgeAgree: 0.86, labelledSites: 20 },
+  geo: {
+    score: 50,
+    partial: false,
+    access: {
+      score: 62,
+      signals: [
+        { label: "robots.txt blocks PerplexityBot", detail: "Retrieval bots fetch pages to answer live questions.", impact: -25 },
+        { label: "No /llms.txt", detail: "A short guide for AI assistants to the site and its key pages.", impact: -10 },
+        { label: "6% of text needs JavaScript (weighted by pages)", detail: "Worst: /buildings/{slug} at 78%.", impact: -3 },
+      ],
+    },
+    readiness: { score: 48, method: "rules + claude" },
+    visibility: {
+      score: 41,
+      engines: [
+        { name: "Claude", cited: 3, asked: 6, live: true },
+        { name: "ChatGPT", cited: 3, asked: 6, live: false },
+        { name: "Perplexity", cited: 3, asked: 6, live: false },
+        { name: "Gemini", cited: 1, asked: 6, live: false },
+      ],
+    },
+  },
   stages: [
     { key: "ingest", label: "Read sitemap", detail: "3 sitemaps · 4,812 URLs", ms: 3100, cost: 0 },
     { key: "crawl", label: "Crawl sample", detail: "180 pages fetched · robots.txt respected", ms: 21400, cost: 0 },
@@ -350,10 +382,10 @@ export const SAMPLE_AUDIT: Audit = {
 };
 
 export const SAMPLE_REPORTS = [
-  { id: "demo-nestlist", site: "nestlist.example", kind: "Rental listings", urls: 4812, templates: 6, ai: 48, seo: 71 },
-  { id: "demo-nestlist", site: "tripstack.example", kind: "Travel guides", urls: 3120, templates: 5, ai: 57, seo: 76 },
-  { id: "demo-nestlist", site: "stackcompare.example", kind: "SaaS comparisons", urls: 1940, templates: 4, ai: 66, seo: 83 },
-  { id: "demo-nestlist", site: "jobsnear.example", kind: "Job listings", urls: 4990, templates: 7, ai: 39, seo: 62 },
+  { id: "demo-nestlist", site: "nestlist.example", kind: "Rental listings", urls: 4812, templates: 6, ai: 48, seo: 71, geo: 50 },
+  { id: "demo-nestlist", site: "tripstack.example", kind: "Travel guides", urls: 3120, templates: 5, ai: 57, seo: 76, geo: 61 },
+  { id: "demo-nestlist", site: "stackcompare.example", kind: "SaaS comparisons", urls: 1940, templates: 4, ai: 66, seo: 83, geo: 70 },
+  { id: "demo-nestlist", site: "jobsnear.example", kind: "Job listings", urls: 4990, templates: 7, ai: 39, seo: 62, geo: 44 },
 ];
 
 export const fmt = (n: number) => n.toLocaleString("en-US");

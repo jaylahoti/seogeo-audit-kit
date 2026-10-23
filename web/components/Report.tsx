@@ -8,6 +8,7 @@ import { MODULES } from "@/lib/modules";
 import { Bar, ScoreRing, scoreColor } from "@/components/Score";
 import { TemplateDetail } from "@/components/TemplateDetail";
 import { MlLab } from "@/components/MlLab";
+import { GeoCard } from "@/components/GeoCard";
 import { AccessBadge, ModuleHead } from "@/components/ui";
 import { CommandPalette } from "@/components/CommandPalette";
 import { RerunButton } from "@/components/NewAudit";
@@ -342,6 +343,8 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
 
   return (
     <div className="space-y-8">
+      {audit.geo && <GeoCard geo={audit.geo} />}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="card p-4"><ScoreRing value={audit.scores.seo} label="SEO health" size={72} /></div>
         <div className="card p-4"><ScoreRing value={audit.scores.ai} label="AI readiness" size={72} /></div>

@@ -154,6 +154,7 @@ export function toAudit(a: ApiAudit): Audit {
     stages: stagesDone,
     ml: { ari: NaN, purity: NaN, kappa: NaN, judgeAgree: NaN, labelledSites: 0 },
     inputUrl: a.input_url,
+    geo: r.geo,
     live,
   };
 }

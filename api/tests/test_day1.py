@@ -145,3 +145,47 @@ async def test_count_all_reads_every_file(monkeypatch):
     assert state.templates == {"/buildings/{slug}": 500, "/blog/{slug}": 40}
     assert state.unmatched == 1  # /about
     assert state.families["/b-#.xml"] == {"files": 2, "urls": 501}
+
+
+def test_geo_score():
+    from app.checks import geo
+
+    templates = [{"pattern": "/a/{slug}", "estimated_pages": 900, "ai_score": 80},
+                 {"pattern": "/b/{slug}", "estimated_pages": 100, "ai_score": 40}]
+    render = [{"pattern": "/a/{slug}", "js_text_share": 0.5, "raw_jsonld": 1, "rendered_jsonld": 1, "error": None},
+              {"pattern": "/b/{slug}", "js_text_share": 0.0, "raw_jsonld": 0, "rendered_jsonld": 2, "error": None}]
+    robots = {"blocked_retrieval_bots": ["PerplexityBot"]}
+    result = {"robots": robots, "llms_txt": {"found": False}, "render": render, "templates": templates,
+              "links": {"depth": {"/a/{slug}": 2, "/b/{slug}": None}}}
+    g = geo.compute(result)
+    labels = [s["label"] for s in g["access"]["signals"]]
+    assert any("PerplexityBot" in x for x in labels) and "No /llms.txt" in labels
+    # 100 - 25 (bot) - 10 (llms) - 18 (45% JS text) - 1.5 (JSON-LD by JS on 10%) - 1.5 (10% deep) ≈ 44
+    assert 42 <= g["access"]["score"] <= 46
+    assert g["readiness"]["score"] == 76  # page-weighted: (80*900 + 40*100) / 1000
+    assert g["partial"] is True and g["visibility"]["score"] is None
+    # Visibility missing → weights renormalised over access (0.3) and readiness (0.4)
+    assert g["score"] == round((g["access"]["score"] * 0.3 + 76 * 0.4) / 0.7)
+
+
+def test_api_accepts_bare_domain(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.net import safe_fetch
+    from app.routers import audits
+
+    async def fake_resolve(host):
+        return "93.184.216.34"
+
+    async def no_run(rec):
+        return None
+
+    monkeypatch.setattr(audits, "resolve_public", fake_resolve)
+    monkeypatch.setattr(audits, "run_audit", no_run)
+    client = TestClient(app)
+    res = client.post("/audits", json={"url": "example.com"})
+    assert res.status_code == 202
+    assert client.get(f"/audits/{res.json()['id']}").json()["input_url"] == "https://example.com"
+    assert client.post("/audits", json={"url": "ftp://example.com"}).status_code == 422
+    _ = safe_fetch

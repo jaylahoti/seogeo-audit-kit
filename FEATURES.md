@@ -52,6 +52,12 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 - ⬜ JSON-LD per template (validated before shown), verdict block, title template, summary block — Claude, Day 2
 - ✅ llms.txt and robots.txt generators (built from the audit's templates, sitemaps and current bot policy)
 
+### GEO score
+- ✅ GEO = Access 30% + Readiness 40% + Visibility 30%; missing parts are left out and marked partial
+- ✅ Access from robots.txt policy, llms.txt, JavaScript-only content (page-weighted), click depth — every deduction listed
+- ✅ Readiness from the AI-readiness checks, page-weighted (Claude's fact extraction joins on Day 2)
+- ⬜ Visibility from citation checks with web search (Claude, Day 2; other engines with your own keys)
+
 ## Stage 2 — AI + product (Day 2)
 - ⬜ Judge agent: merge findings per template, rank by pages × severity; model router (rules → Haiku → Sonnet)
 - ⬜ Web UI wired to the API: live progress over SSE, real report

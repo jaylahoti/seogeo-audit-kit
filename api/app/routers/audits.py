@@ -23,6 +23,8 @@ class AuditIn(BaseModel):
 @router.post("", status_code=202)
 async def create_audit(body: AuditIn):
     url = body.url.strip()
+    if "://" not in url:
+        url = f"https://{url}"  # accept bare domains like "example.com"
     try:
         check_url(url)
         # Resolve now so internal targets are refused up front, not mid-audit.

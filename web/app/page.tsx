@@ -67,7 +67,7 @@ function HeroPreview() {
         <div className="col-span-2 space-y-3 p-4 sm:col-span-1">
           <div className="flex flex-wrap gap-4">
             <ScoreRing value={a.scores.seo} label="SEO" size={56} />
-            <ScoreRing value={a.scores.ai} label="AI readiness" size={56} />
+            <ScoreRing value={a.geo?.score ?? a.scores.ai} label="GEO score" size={56} />
             <div className="text-xs"><div className="text-[var(--faint)]">Audit cost</div><div className="mono text-lg font-semibold">${a.cost.toFixed(2)}</div></div>
           </div>
           <div className="divide-y divide-[var(--line)] rounded-lg border border-[var(--line)]">
@@ -196,7 +196,7 @@ export default function Home() {
             <Link key={r.site} href={`/report/${r.id}`} className="card group p-4 transition hover:border-[var(--line-strong)]">
               <div className="mono truncate text-sm">{r.site}</div>
               <div className="mt-0.5 text-xs text-[var(--muted)]">{r.kind}</div>
-              <div className="mt-4 flex gap-4"><ScoreBadge label="SEO" value={r.seo} /><ScoreBadge label="AI" value={r.ai} /></div>
+              <div className="mt-4 flex gap-4"><ScoreBadge label="GEO" value={r.geo} /><ScoreBadge label="SEO" value={r.seo} /><ScoreBadge label="AI ready" value={r.ai} /></div>
               <div className="mt-4 flex justify-between text-xs text-[var(--faint)]">
                 <span>{fmt(r.urls)} URLs · {r.templates} templates</span>
                 <span className="transition group-hover:translate-x-0.5">→</span>

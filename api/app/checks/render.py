@@ -25,7 +25,8 @@ from app.ingest.robots import RobotsInfo
 from app.net.safe_fetch import BlockedURL, FetchError, resolve_public
 
 SKIP_RESOURCES = {"image", "media", "font"}
-RENDER_TIMEOUT_MS = 20_000
+RENDER_TIMEOUT_MS = 30_000  # to first DOM
+SETTLE_MS = 8_000  # extra time for scripts after that
 CONCURRENCY = 3
 
 
@@ -90,10 +91,14 @@ async def render_html(urls: list[str], robots: RobotsInfo) -> dict[str, str | No
             async with sem:
                 page = await context.new_page()
                 try:
-                    try:
-                        await page.goto(url, wait_until="networkidle", timeout=RENDER_TIMEOUT_MS)
-                    except Exception:  # noqa: BLE001 — pages that never go idle: use what loaded
-                        await page.wait_for_load_state("load", timeout=5_000)
+                    # Wait for the DOM, then give scripts a short window to finish. Pages with
+                    # live widgets never reach "network idle", so don't require it.
+                    await page.goto(url, wait_until="domcontentloaded", timeout=RENDER_TIMEOUT_MS)
+                    for state in ("load", "networkidle"):
+                        try:
+                            await page.wait_for_load_state(state, timeout=SETTLE_MS)
+                        except Exception:  # noqa: BLE001 — use whatever has rendered by now
+                            break
                     results[url] = await page.content()
                 except Exception:  # noqa: BLE001 — a page that can't render is reported, not fatal
                     results[url] = None

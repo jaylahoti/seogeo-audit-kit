@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, field
 from urllib.parse import urlsplit
 
 from app.checks import ai as ai_checks
+from app.checks import geo
 from app.checks import seo as seo_checks
 from app.checks.content import pick_samples
 from app.checks.cwv import findings as cwv_findings
@@ -291,13 +292,18 @@ async def _pipeline(rec: AuditRecord, client) -> None:
 
     async with stage(rec, "score", "Score and generate fixes") as s:
         rec.result["templates"] = _finalize(state, rec.result)
+        rec.result["geo"] = geo.compute(rec.result)
         sitemaps = rec.result["sitemap"]["start"] if rec.result.get("sitemap") else []
         rec.result["fixes"] = {
             "llms_txt": generate_llms_txt(origin, report.home, rec.result["templates"], sitemaps),
             "robots_txt": generate_robots_txt(rec.result.get("robots", {}), sitemaps),
         }
         n = sum(len(t["findings"]) for t in rec.result["templates"])
-        s["detail"] = f"{n} findings · SEO {rec.result['scores']['seo']} · AI readiness {rec.result['scores']['ai']}"
+        g = rec.result["geo"]
+        s["detail"] = (
+            f"{n} findings · GEO {g['score']}{' (partial)' if g['partial'] else ''} · SEO {rec.result['scores']['seo']}"
+            f" · AI readiness {rec.result['scores']['ai']}"
+        )
 
 
 MAX_CLICKS = 3

@@ -31,7 +31,7 @@ export function LiveRun({ id, url }: { id: string; url: string }) {
     Object.fromEntries(PLAN.map(([k, l]) => [k, { status: "waiting", label: l }])),
   );
   const [templates, setTemplates] = useState<Tpl[] | null>(null);
-  const [scores, setScores] = useState<{ seo: number; ai: number } | null>(null);
+  const [scores, setScores] = useState<{ seo: number; ai: number; geo?: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -46,7 +46,7 @@ export function LiveRun({ id, url }: { id: string; url: string }) {
     async function refresh() {
       const a = await getAudit(id).catch(() => null);
       if (a?.result?.templates) setTemplates(a.result.templates);
-      if (a?.result?.scores) setScores(a.result.scores);
+      if (a?.result?.scores) setScores({ ...a.result.scores, geo: a.result.geo?.score });
     }
     const stop = streamEvents(id, (e: StageEvent) => {
       if (e.type === "stage" && e.key) {
@@ -143,6 +143,7 @@ export function LiveRun({ id, url }: { id: string; url: string }) {
           </ul>
           {scores && (
             <div className="fadein mt-4 flex gap-4 border-t border-[var(--line)] pt-3 text-sm">
+              {scores.geo != null && <span>GEO <b style={{ color: scoreColor(scores.geo) }}>{scores.geo}</b></span>}
               <span>SEO <b style={{ color: scoreColor(scores.seo) }}>{scores.seo}</b></span>
               <span>AI <b style={{ color: scoreColor(scores.ai) }}>{scores.ai}</b></span>
             </div>
