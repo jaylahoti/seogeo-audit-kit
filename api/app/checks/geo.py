@@ -83,5 +83,12 @@ def compute(result: dict) -> dict:
     access = access_score(result.get("robots", {}), result.get("llms_txt", {}), result.get("render", []),
                           result.get("templates", []), result.get("links", {}))
     readiness = readiness_score(result.get("templates", []))
-    visibility = {"score": None, "status": "pending", "reason": "Needs AI citation checks (Claude with web search)."}
+    vis = result.get("visibility") or {}
+    if vis.get("score") is not None:
+        visibility = {"score": vis["score"], "engines": vis.get("engines", []), "asked": vis.get("asked")}
+    else:
+        visibility = {"score": None, "status": "pending",
+                      "reason": vis.get("reason") or "Needs AI citation checks (Claude with web search)."}
+    if result.get("claude_pages"):
+        readiness["method"] = "rules + claude"
     return {**geo_score(access, readiness, visibility), "access": access, "readiness": readiness, "visibility": visibility}

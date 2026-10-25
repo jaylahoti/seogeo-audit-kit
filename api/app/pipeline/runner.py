@@ -26,6 +26,10 @@ from app.ingest.discover import candidate_sitemaps, discover_by_links
 from app.ingest.llms_txt import check_llms_txt
 from app.ingest.robots import fetch_robots
 from app.ingest.sitemap import SitemapResult, ingest_sitemaps
+from app.llm import page_checks
+from app.llm.client import Claude
+from app.llm.judge import judge
+from app.llm.visibility import question_gaps, run_visibility
 from app.ml.dom_clusters import Sampled, cluster_layouts, fingerprint, reconcile
 from app.ml.url_patterns import Template, detect_url_templates
 from app.net.safe_fetch import BlockedURL, check_url, make_client
@@ -290,6 +294,45 @@ async def _pipeline(rec: AuditRecord, client) -> None:
 
     await asyncio.gather(render_stage(), cwv_stage())
 
+    claude = Claude()
+    sizes = {x.t.pattern: x.t.estimated_pages for x in state}
+
+    async with stage(rec, "claude_pages", "Claude page checks (facts, verdict, title)") as s:
+        if not claude.enabled:
+            s["detail"] = "Skipped: no ANTHROPIC_API_KEY (rule heuristics used instead)"
+        else:
+            picks = [x for x in big if x.t.pattern not in ("/", "/{static}")][: settings.claude_templates]
+            jobs = [(x.t.pattern, f) for x in picks for f in x.samples if f.status == 200]
+            checks = await page_checks.check_pages(claude, jobs)
+            summaries = {}
+            for x in picks:
+                cs = checks.get(x.t.pattern)
+                if not cs:
+                    continue
+                summaries[x.t.pattern] = page_checks.summarize(cs)
+                ctx = TemplateContext(x.t.pattern, x.t.estimated_pages, x.samples, {})
+                claude_findings = page_checks.findings(ctx, cs, [f for f in x.samples if f.status == 200])
+                # Claude's judgement replaces the quick heuristics for the same questions.
+                x.findings = [f for f in x.findings if f.id not in ("no_verdict", "facts_buried")] + claude_findings
+            rec.result["claude_pages"] = summaries
+            st = claude.ledger.for_stage("claude_pages")
+            s["cost"] = st["cost"]
+            s["detail"] = f"{len(jobs)} pages across {len(summaries)} page types · {st['calls']} Haiku calls · ${st['cost']:.3f}"
+
+    async with stage(rec, "visibility", "AI visibility (Claude with web search)") as s:
+        if not claude.enabled or not rec.result.get("claude_pages"):
+            s["detail"] = "Skipped: needs Claude page checks"
+        else:
+            vis = await run_visibility(claude, url, rec.result["claude_pages"], sizes)
+            rec.result["visibility"] = vis
+            rec.result["question_gaps"] = question_gaps(rec.result["claude_pages"], vis)
+            st = claude.ledger.for_stage("visibility")
+            s["cost"] = st["cost"]
+            s["detail"] = (
+                f"{vis.get('asked', 0)} questions · cited in {vis.get('cited', 0)} · found but not cited in "
+                f"{vis.get('found_not_cited', 0)} · {st['searches']} searches · ${st['cost']:.3f}"
+            )
+
     async with stage(rec, "score", "Score and generate fixes") as s:
         rec.result["templates"] = _finalize(state, rec.result)
         rec.result["geo"] = geo.compute(rec.result)
@@ -304,6 +347,51 @@ async def _pipeline(rec: AuditRecord, client) -> None:
             f"{n} findings · GEO {g['score']}{' (partial)' if g['partial'] else ''} · SEO {rec.result['scores']['seo']}"
             f" · AI readiness {rec.result['scores']['ai']}"
         )
+
+    async with stage(rec, "judge", "Judge and write fixes (Claude Sonnet)") as s:
+        if not claude.enabled:
+            s["detail"] = "Skipped: no ANTHROPIC_API_KEY"
+        else:
+            verdict = await judge(claude, rec.result)
+            if verdict:
+                rec.result["judge"] = verdict
+                _attach_fixes(rec.result["templates"], verdict["template_fixes"])
+            st = claude.ledger.for_stage("judge")
+            s["cost"] = st["cost"]
+            valid = sum(1 for f in (verdict or {}).get("template_fixes", []) if f.get("jsonld"))
+            s["detail"] = (f"Summary, {len(verdict['top_fixes'])} top fixes, fixes for {len(verdict['template_fixes'])} page types "
+                           f"({valid} JSON-LD validated) · ${st['cost']:.3f}") if verdict else "The judge didn't return a result"
+
+    rec.result["claude"] = claude.ledger.to_json()
+    rec.result["naive_cost_usd"] = round(sum(sizes.values()) * NAIVE_COST_PER_PAGE, 2)
+
+
+# What it would cost to send every page through Sonnet (~3K tokens in, 500 out): the
+# "naive" comparison shown next to the real audit cost.
+NAIVE_COST_PER_PAGE = 3000 * 2.0 / 1e6 + 500 * 10.0 / 1e6
+
+FIX_TARGETS = {
+    "jsonld": ("jsonld", "JSON-LD for this page type", {"jsonld_missing", "jsonld_required", "jsonld_placeholders", "jsonld_no_entity", "facts_not_extractable"}),
+    "verdict_html": ("html", "Verdict sentence", {"no_verdict", "visible_placeholders"}),
+    "title_template": ("html", "Title template", {"title_intent", "title_long", "title_short", "title_duplicate"}),
+}
+
+
+def _attach_fixes(templates: list[dict], fixes: list[dict]) -> None:
+    """Put each judge-written fix on the finding it resolves (first match per fix)."""
+    by_pattern = {t["pattern"]: t for t in templates}
+    for fix in fixes:
+        t = by_pattern.get(fix["page_type"])
+        if not t:
+            continue
+        t["judge_notes"] = fix.get("notes")
+        for key, (kind, label, ids) in FIX_TARGETS.items():
+            content = fix.get(key)
+            if not content:
+                continue
+            target = next((f for f in t["findings"] if f["id"] in ids and "fix" not in f), None)
+            if target:
+                target["fix"] = {"kind": kind, "label": label, "content": content}
 
 
 MAX_CLICKS = 3

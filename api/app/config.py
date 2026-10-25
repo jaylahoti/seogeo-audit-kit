@@ -5,7 +5,13 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     anthropic_api_key: str = ""
-    psi_api_key: str = ""  # optional free Google key for PageSpeed Insights; raises the quota
+    psi_api_key: str = ""
+    # Claude: models per job and a hard cost ceiling per audit (USD).
+    page_model: str = "claude-haiku-5-5"  # per-page checks and citation searches
+    judge_model: str = "claude-sonnet-5-5"  # one judge-and-fixes call per audit
+    max_audit_cost_usd: float = 0.50
+    claude_templates: int = 12  # largest page types that get Claude page checks
+    visibility_questions: int = 10  # citation searches per audit  # optional free Google key for PageSpeed Insights; raises the quota
     # Smart sampling limits. The hosted demo keeps these defaults; self-hosters can raise them.
     max_urls: int = 5000  # sitemap URLs kept for template detection
     max_sitemaps: int = 50  # sitemap files read per audit (the rest are estimated)
