@@ -1,0 +1,52 @@
+name: SEOGEO Audit Kit
+description: SEO and GEO (AI search) audit of a site, per page type. Fails the job when a rule fails.
+branding:
+  icon: search
+  color: gray-dark
+
+inputs:
+  url:
+    description: Site or sitemap URL to audit (e.g. your preview deployment)
+    required: true
+  fail-on:
+    description: 'Comma-separated rules, e.g. "geo<60,ai<70,high-issues>0,missing-jsonld"'
+    default: ""
+  anthropic-api-key:
+    description: Optional. Enables the Claude checks (fact extraction, judge, AI visibility). Pass a secret.
+    default: ""
+  max-cost:
+    description: Claude budget per run in USD
+    default: "0.50"
+  render:
+    description: Run the headless-browser "What AI sees" step (slower)
+    default: "false"
+  version:
+    description: Git ref of seogeo-audit-kit to run
+    default: main
+
+outputs:
+  report:
+    description: Path to the JSON report
+    value: ${{ steps.audit.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v6
+    - id: audit
+      shell: bash
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        DATABASE_URL: sqlite:///${{ runner.temp }}/seogeo-audits.db
+        SRC: git+https://github.com/jaylahoti/seogeo-audit-kit@${{ inputs.version }}#subdirectory=api
+      run: |
+        report="${{ runner.temp }}/seogeo-report.json"
+        args=(audit "${{ inputs.url }}" --json "$report" --summary "$GITHUB_STEP_SUMMARY" --max-cost "${{ inputs.max-cost }}")
+        [ -n "${{ inputs.fail-on }}" ] && args+=(--fail-on "${{ inputs.fail-on }}")
+        if [ "${{ inputs.render }}" = "true" ]; then
+          uvx --from "$SRC" playwright install --with-deps chromium
+        else
+          args+=(--no-render)
+        fi
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+        uvx --from "$SRC" seogeo-audit "${args[@]}"

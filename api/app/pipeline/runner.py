@@ -275,6 +275,10 @@ async def _pipeline(rec: AuditRecord, client) -> None:
 
     async def render_stage():
         async with stage(rec, "render", "What AI sees (with vs without JavaScript)") as s:
+            if not settings.render_pages:
+                s["detail"] = "Skipped (render_pages is off)"
+                rec.result["render"] = []
+                return
             picks = [(x, next(f for f in x.samples if f.status == 200)) for x in big[:MAX_RENDER]]
             html = await render_html([f.url for _, f in picks], robots)
             diffs = []

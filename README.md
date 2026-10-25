@@ -6,8 +6,8 @@ A programmatic site has thousands of pages but only a handful of templates. SEOG
 finds the templates behind a sitemap, checks a few representative pages from each, and tells
 you what to fix — with how many pages each fix covers.
 
-> **Status:** work in progress. The audit engine runs end to end on real sites; the UI still
-> shows sample data and the Claude-powered checks are next. See [`FEATURES.md`](FEATURES.md).
+> **Status:** work in progress. Full audits run end to end on real sites, including the Claude
+> checks; account connections (Search Console, Bing, analytics) are next. See [`FEATURES.md`](FEATURES.md).
 
 ## What it does
 
@@ -106,6 +106,61 @@ raise them in `api/.env`:
 
 To audit one section in more depth, pass a single child sitemap (for example
 `https://example.com/sitemap_products_042.xml`) instead of the main one.
+
+## Command line, GitHub Action and MCP
+
+**CLI** — runs the same audit without the web app (from `api/`):
+
+```bash
+uv run seogeo-audit audit example.com
+uv run seogeo-audit audit example.com --fail-on "geo<60,high-issues>0,missing-jsonld" --json report.json
+uv run seogeo-audit page https://example.com/some/page     # one page, in seconds
+```
+
+Exit code 1 when a `--fail-on` rule fails, 2 when the audit can't run. Rules: `geo<N`, `seo<N`,
+`ai<N`, `visibility<N`, `high-issues>N`, `missing-jsonld`.
+
+**GitHub Action** — audit a preview deployment on every pull request and fail it on regressions:
+
+```yaml
+- uses: jaylahoti/seogeo-audit-kit/action@main
+  with:
+    url: ${{ steps.deploy.outputs.preview-url }}
+    fail-on: "geo<60,missing-jsonld"
+    anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}   # optional: enables the Claude checks
+```
+
+The summary is written to the job's summary page; the full JSON report is an output.
+
+**MCP server** — use the audit from Claude Code, Cursor or any MCP client:
+
+```bash
+claude mcp add seogeo -- uvx --from "git+https://github.com/jaylahoti/seogeo-audit-kit#subdirectory=api" seogeo-audit-mcp
+```
+
+Tools: `audit_site`, `get_report`, `get_page_type` (findings and ready-to-paste fixes), `check_page`, `get_llms_txt`.
+
+## Claude, cost and limits
+
+Claude runs only on sample pages, with a hard budget per audit (`MAX_AUDIT_COST_USD`, default $0.50):
+
+| Step | Model | Calls | Typical cost |
+|---|---|---|---|
+| Page checks: key facts, verdict sentence, facts up front, title intent, questions | Haiku | ~5 per page type | ~$0.05 |
+| AI visibility: questions asked with web search; cited / found / missing | Haiku + web search | ~10 | ~$0.08 |
+| Judge: summary, top fixes, verdict / title / JSON-LD per page type (JSON-LD validated) | Sonnet | 1 | ~$0.05 |
+
+On a 1.35M-page site a full audit cost $0.17 — sending every page through Sonnet would cost about $14,900.
+Quotes Claude returns are checked against the page text, and generated JSON-LD must parse and include
+the required properties for its type before it's shown. Without `ANTHROPIC_API_KEY` the audit still runs
+on rules, ML and the headless browser, and the Claude stages are skipped.
+
+## Saved audits and monitoring
+
+Audits are saved to a database (SQLite by default, Postgres via `DATABASE_URL`), so reports survive
+restarts. Each audit is compared with the site's previous one — score drops, new and fixed issues, newly
+blocked AI bots — and `POST /monitors {"url": "example.com", "every_hours": 168, "webhook_url": "…"}`
+re-audits on a schedule and posts regressions to a Slack-compatible webhook.
 
 ## Tests
 

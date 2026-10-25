@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     page_model: str = "claude-haiku-5-5"  # per-page checks and citation searches
     judge_model: str = "claude-sonnet-5-5"  # one judge-and-fixes call per audit
     max_audit_cost_usd: float = 0.50
+    render_pages: bool = True  # headless-browser "What AI sees" step (CI can turn it off)
     claude_templates: int = 12  # largest page types that get Claude page checks
     visibility_questions: int = 10  # citation searches per audit  # optional free Google key for PageSpeed Insights; raises the quota
     # Smart sampling limits. The hosted demo keeps these defaults; self-hosters can raise them.

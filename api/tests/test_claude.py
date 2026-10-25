@@ -75,3 +75,28 @@ def test_monitor_routes():
     assert any(x["id"] == m["id"] for x in c.get("/monitors").json())
     assert c.delete(f"/monitors/{m['id']}").status_code == 204
     assert c.post("/monitors", json={"url": "example.com", "every_hours": 0.1}).status_code == 422
+
+
+def test_cli_rules():
+    import pytest
+
+    from app.cli import evaluate, parse_rules, summary_markdown
+
+    result = {"geo": {"score": 55}, "scores": {"seo": 90, "ai": 70}, "visibility": {"score": None},
+              "templates": [{"pattern": "/b/{slug}", "findings": [{"id": "jsonld_missing", "severity": "high"}]},
+                            {"pattern": "/c/{slug}", "findings": []}]}
+    rules = parse_rules("geo<60, seo<80, high-issues>0, missing-jsonld, visibility<50")
+    failed = evaluate(result, rules)
+    assert failed == ["geo<60 (was 55)", "high-issues>0 (was 1)", "missing-jsonld (/b/{slug})"]
+    with pytest.raises(SystemExit):
+        parse_rules("geo>60")
+    assert "**GEO 55**" in summary_markdown(result, failed, "example.com")
+
+
+async def test_mcp_tools_registered():
+    from app.mcp_server import server
+
+    names = {t.name for t in await server.list_tools()}
+    assert names == {"audit_site", "get_report", "get_page_type", "check_page", "get_llms_txt"}
+    missing = await server.call_tool("get_report", {"audit_id": "nope"})
+    assert "not found" in str(missing).lower()
