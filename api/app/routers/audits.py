@@ -33,11 +33,16 @@ async def create_audit(body: AuditIn):
         raise HTTPException(status_code=422, detail=str(e)) from e
     except FetchError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+    rec = await start_audit(url)
+    return {"id": rec.id, "status": rec.status}
+
+
+async def start_audit(url: str):
     rec = store.create(url)
     task = asyncio.create_task(run_audit(rec))
     _tasks.add(task)  # keep a reference so the task isn't garbage-collected
     task.add_done_callback(_tasks.discard)
-    return {"id": rec.id, "status": rec.status}
+    return rec
 
 
 @router.get("/{audit_id}")
@@ -103,8 +108,43 @@ async def count_pages(audit_id: str):
         except Exception as e:  # noqa: BLE001 — report, don't crash the API
             state.status, state.error = "error", f"Counting failed: {type(e).__name__}"
         rec.result["exact_count"] = asdict(state)
+        store.save(rec)
 
     task = asyncio.create_task(run())
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
     return rec.result["exact_count"]
+
+
+monitors = APIRouter(prefix="/monitors", tags=["monitoring"])
+
+
+class MonitorIn(BaseModel):
+    url: str = Field(..., max_length=2048)
+    every_hours: float = Field(168, ge=1, le=24 * 31, description="How often to re-audit (default weekly)")
+    webhook_url: str | None = Field(None, max_length=2048, description="Slack-compatible incoming webhook for regressions")
+
+
+@monitors.post("", status_code=201)
+async def create_monitor(body: MonitorIn):
+    url = body.url.strip()
+    if "://" not in url:
+        url = f"https://{url}"
+    try:
+        check_url(url)
+        if body.webhook_url:
+            check_url(body.webhook_url)
+    except BlockedURL as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    return store.add_monitor(url, body.every_hours, body.webhook_url)
+
+
+@monitors.get("")
+async def list_monitors(host: str | None = None):
+    return [{k: v for k, v in m.items() if k != "webhook_url"} | {"has_webhook": bool(m.get("webhook_url"))} for m in store.monitors(host)]
+
+
+@monitors.delete("/{monitor_id}", status_code=204)
+async def delete_monitor(monitor_id: str):
+    if not store.delete_monitor(monitor_id):
+        raise HTTPException(status_code=404, detail="Monitor not found")

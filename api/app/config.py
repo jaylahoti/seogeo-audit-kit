@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     max_redirects: int = 5
     user_agent: str = "SEOGEOAuditKitBot/0.1 (+https://github.com/jaylahoti/seogeo-audit-kit)"
     cors_origins: str = "http://localhost:3001"
+    # Saved audits. SQLite file by default; set a postgresql+psycopg:// URL in production.
+    database_url: str = "sqlite:///./audits.db"
 
 
 settings = Settings()

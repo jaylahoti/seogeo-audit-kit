@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
 from urllib.parse import urlsplit
 
+from app import monitoring
 from app.checks import ai as ai_checks
 from app.checks import geo
 from app.checks import seo as seo_checks
@@ -33,7 +34,7 @@ from app.llm.visibility import question_gaps, run_visibility
 from app.ml.dom_clusters import Sampled, cluster_layouts, fingerprint, reconcile
 from app.ml.url_patterns import Template, detect_url_templates
 from app.net.safe_fetch import BlockedURL, check_url, make_client
-from app.store import AuditRecord
+from app.store import AuditRecord, host_of, store
 
 # Cap concurrent audits so one busy minute can't exhaust the box.
 _slots = asyncio.Semaphore(3)
@@ -76,12 +77,15 @@ async def run_audit(rec: AuditRecord) -> None:
             async with make_client() as client:
                 await _pipeline(rec, client)
             rec.status = "done"
+            store.save(rec)  # save before announcing, so the report link works immediately
             await rec.emit({"type": "done"})
         except (BlockedURL, AuditError) as e:  # expected, user-facing problems
             rec.status, rec.error = "error", str(e)
+            store.save(rec)
             await rec.emit({"type": "error", "message": str(e)})
         except Exception as e:  # noqa: BLE001 — top-level boundary: clean message, no traceback
             rec.status, rec.error = "error", f"Audit failed: {type(e).__name__}"
+            store.save(rec)
             await rec.emit({"type": "error", "message": rec.error})
 
 
@@ -362,6 +366,7 @@ async def _pipeline(rec: AuditRecord, client) -> None:
             s["detail"] = (f"Summary, {len(verdict['top_fixes'])} top fixes, fixes for {len(verdict['template_fixes'])} page types "
                            f"({valid} JSON-LD validated) · ${st['cost']:.3f}") if verdict else "The judge didn't return a result"
 
+    monitoring.attach(rec.id, host_of(url), rec.result)
     rec.result["claude"] = claude.ledger.to_json()
     rec.result["naive_cost_usd"] = round(sum(sizes.values()) * NAIVE_COST_PER_PAGE, 2)
 
