@@ -1,6 +1,7 @@
 // Client for the audit API, plus the adapter from an API result to the report UI's shape.
 
 import type { Audit, Finding, LiveExtras, Stage, Template } from "@/lib/mock";
+import { rememberAudit, siteOf } from "@/lib/recent";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
 
@@ -41,6 +42,7 @@ export async function createAudit(url: string): Promise<{ id: string }> {
   }
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : `The API returned ${res.status}`);
+  rememberAudit({ id: body.id, site: siteOf(url), at: Date.now(), status: "running" });
   return body;
 }
 

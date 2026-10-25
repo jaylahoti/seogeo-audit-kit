@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { getAudit, streamEvents, type StageEvent } from "@/lib/api";
+import { rememberAudit, siteOf } from "@/lib/recent";
 import { fmt } from "@/lib/mock";
 import { scoreColor } from "@/components/Score";
 
@@ -59,10 +60,12 @@ export function LiveRun({ id, url }: { id: string; url: string }) {
         const detail = e.key === "sitemap" ? `${fmt(Number(e.urls))} URLs from ${e.sitemaps} sitemaps so far` : `${e.pages} of ${e.of} pages`;
         setStages((s) => ({ ...s, [e.key!]: { ...s[e.key!], detail } }));
       } else if (e.type === "done") {
+        rememberAudit({ id, site: siteOf(url || ""), at: Date.now(), status: "done" });
         setDone(true);
         refresh();
         setTimeout(() => router.push(`/report/${encodeURIComponent(id)}`), 1500);
       } else if (e.type === "error") {
+        rememberAudit({ id, site: siteOf(url || ""), at: Date.now(), status: "error" });
         setError(e.message ?? "The audit failed.");
       }
     });

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { getAudit, toAudit } from "@/lib/api";
+import { rememberAudit, siteOf } from "@/lib/recent";
 import type { Audit } from "@/lib/mock";
 import { SAMPLE_AUDIT } from "@/lib/mock";
 import { Report } from "@/components/Report";
@@ -18,9 +19,14 @@ export function ReportLoader({ id }: { id: string }) {
     try {
       const a = await getAudit(id);
       if (!a) setState({ kind: "missing" });
-      else if (a.status === "error") setState({ kind: "error", message: a.error ?? "The audit failed." });
-      else if (a.status !== "done") setState({ kind: "running" });
-      else setState({ kind: "ready", audit: toAudit(a) });
+      else if (a.status === "error") {
+        rememberAudit({ id, site: siteOf(a.input_url), at: a.created_at * 1000, status: "error" });
+        setState({ kind: "error", message: a.error ?? "The audit failed." });
+      } else if (a.status !== "done") setState({ kind: "running" });
+      else {
+        rememberAudit({ id, site: siteOf(a.input_url), at: a.created_at * 1000, status: "done", geo: a.result?.geo?.score ?? null });
+        setState({ kind: "ready", audit: toAudit(a) });
+      }
     } catch (e) {
       setState({ kind: "error", message: e instanceof Error ? e.message : "Couldn't load the audit." });
     }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuditForm } from "@/components/AuditForm";
+import { RecentAuditsSection } from "@/components/RecentAudits";
 import { ScoreBadge, ScoreRing, Bar, scoreColor } from "@/components/Score";
 import { AccessBadge, CodeBlock } from "@/components/ui";
 import { SAMPLE_AUDIT, SAMPLE_REPORTS, fmt } from "@/lib/mock";
@@ -110,6 +111,8 @@ export default function Home() {
         </div>
         <HeroPreview />
       </section>
+
+      <RecentAuditsSection />
 
       {/* Replaces */}
       <section className="border-y border-[var(--line)] bg-[var(--sunken)]">

@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createAudit } from "@/lib/api";
+import { RecentAuditsList } from "@/components/RecentAudits";
 
 function normalize(raw: string): string | null {
   let value = raw.trim();
@@ -95,7 +96,8 @@ export function NewAuditButton() {
             <button className="btn btn-primary h-9" disabled={busy}>{busy ? "…" : "Run"}</button>
           </div>
           {err && <p className="mt-1.5 text-xs text-[var(--bad)]">{err}</p>}
-          <p className="mt-2 text-[11px] text-[var(--faint)]">Takes 2–3 minutes. Your current report stays at its link.</p>
+          <p className="mt-2 text-[11px] text-[var(--faint)]">Takes 2–4 minutes. Your current report stays at its link.</p>
+          <RecentAuditsList onPick={() => setOpen(false)} />
         </form>
       )}
     </div>
