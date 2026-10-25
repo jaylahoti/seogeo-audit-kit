@@ -337,8 +337,10 @@ async def _pipeline(rec: AuditRecord, client) -> None:
             st = claude.ledger.for_stage("visibility")
             s["cost"] = st["cost"]
             s["detail"] = (
-                f"{vis.get('asked', 0)} questions · cited in {vis.get('cited', 0)} · found but not cited in "
-                f"{vis.get('found_not_cited', 0)} · {st['searches']} searches · ${st['cost']:.3f}"
+                f"{vis.get('asked', 0)} searched answers · cited in {vis.get('cited', 0)} · found but not cited in "
+                f"{vis.get('found_not_cited', 0)}"
+                + (f" · {vis['not_searched']} answered without searching (not scored)" if vis.get("not_searched") else "")
+                + f" · {st['searches']} searches · ${st['cost']:.3f}"
             )
 
     async with stage(rec, "score", "Score and generate fixes") as s:

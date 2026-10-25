@@ -168,4 +168,5 @@ class Claude:
                     results.extend(r.url for r in content if getattr(r, "url", None))
         searches = getattr(getattr(res.usage, "server_tool_use", None), "web_search_requests", None) or (1 if results else 0)
         self._record(stage, model, res.usage, searches, started, res.stop_reason != "refusal")
-        return {"text": "".join(text), "cited_urls": list(dict.fromkeys(cited)), "result_urls": list(dict.fromkeys(results))}
+        return {"text": "".join(text), "cited_urls": list(dict.fromkeys(cited)),
+                "result_urls": list(dict.fromkeys(results)), "searches": searches}

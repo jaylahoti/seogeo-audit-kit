@@ -82,7 +82,7 @@ export type GeoScore = {
   partial: boolean;
   access: { score: number; signals: GeoSignal[] };
   readiness: { score: number | null; method?: string };
-  visibility: { score: number | null; reason?: string; engines?: { name: string; cited: number; asked: number; live: boolean }[] };
+  visibility: { score: number | null; reason?: string; asked?: number; confidence?: number; engines?: { name: string; cited: number; asked: number; live: boolean }[] };
 };
 
 export type FamilyStat = { family: string; files_total: number; files_read: number; urls_listed: number; urls_sampled: number; estimated: number };
@@ -99,7 +99,38 @@ export type ExactCount = {
   error: string | null;
 };
 
+export type ClaudePage = {
+  page_type: string | null; pages: number; facts_in_text: number | null; facts_in_structured_data: number | null;
+  missing_facts: string[]; verdicts: string[]; has_verdict: number | null; facts_up_front: number | null;
+  title_matches_intent: number | null; better_title_template: string | null;
+  questions: { question: string; answered: "yes" | "partial" | "no" }[];
+};
+export type VisibilityAnswer = { page_type: string; question: string; status: "cited" | "found" | "missing" | "not_searched"; position: number | null; cited_instead: string[]; answer: string };
+export type Visibility = {
+  score: number | null; asked?: number; cited?: number; found_not_cited?: number; reason?: string;
+  answers: VisibilityAnswer[]; share_of_voice: { domain: string; share: number; you: boolean }[];
+};
+export type Judgement = {
+  summary: string;
+  top_fixes: { page_type: string; title: string; why: string; effort: "low" | "medium" | "high" }[];
+  template_fixes: { page_type: string; notes: string; jsonld: string | null; jsonld_valid?: boolean; jsonld_rejected?: string; verdict_html: string | null; title_template: string | null }[];
+};
+export type GapRow = { page_type: string; question: string; answered_on_page: "yes" | "partial" | "no"; facts_extractable: number | null; ai_cites_site: "cited" | "found" | "missing" | null };
+export type Monitoring = {
+  previous_id: string | null; previous_at: number | null;
+  changes: { severity: "high" | "medium" | "low"; kind: string; title: string; detail: string; pages: number; page_type: string | null }[];
+  trend: { id: string; at: number; seo: number | null; ai: number | null; geo: number | null }[];
+  monitors: { id: string; every_hours: number; next_run_at: number }[];
+};
+
 export type LiveExtras = {
+  claudeEnabled: boolean;
+  claudeSpent: number;
+  claudePages: Record<string, ClaudePage>;
+  visibility: Visibility | null;
+  judge: Judgement | null;
+  gaps: GapRow[];
+  monitoring: Monitoring | null;
   sitemapSource: "sitemap" | "links";
   pageCount: { leavesTotal: number; leavesRead: number; urlsSampled: number; families: FamilyStat[]; estimatedTotal: number };
   exactCount: ExactCount | null;

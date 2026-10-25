@@ -229,12 +229,32 @@ export function Fixes({ audit }: { audit: Audit }) {
   return (
     <div className="space-y-6">
       <ModuleHead num={12} access="claude" title="Fixes" desc="Generated per template and checked before they're shown: JSON-LD is validated against schema.org, and placeholders map to your template's data fields." />
-      {live && (
+      {live && audit.live?.judge && audit.live.judge.template_fixes.length > 0 && (
+        <div className="space-y-4">
+          {audit.live.judge.template_fixes.map((f) => (
+            <section key={f.page_type} className="card p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="mono text-sm font-medium">{f.page_type}</h3>
+                <span className="text-xs text-[var(--faint)]">Written by Claude Sonnet{f.jsonld ? " · JSON-LD validated" : ""}</span>
+              </div>
+              <p className="mt-1 text-sm text-[var(--muted)]">{f.notes}</p>
+              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                {f.title_template && <CodeBlock label="Title template" code={f.title_template} />}
+                {f.verdict_html && <CodeBlock label="Verdict sentence · near the top of the page" code={f.verdict_html} />}
+                {f.jsonld && <div className="lg:col-span-2"><CodeBlock label="JSON-LD · validated: parses and has the required properties" code={f.jsonld} /></div>}
+                {f.jsonld_rejected && <p className="text-xs text-[var(--warn)] lg:col-span-2">A JSON-LD suggestion was rejected by validation ({f.jsonld_rejected}), so it isn't shown.</p>}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+      {live && !audit.live?.judge && (
         <Notice title="llms.txt and robots.txt below are generated from this audit">
-          Verdict sentences, title templates and JSON-LD for each template are written by Claude — those arrive with the Claude checks. The two examples on the left show what they'll look like.
+          Verdict sentences, title templates and JSON-LD per page type are written by Claude, which didn't run for this audit (no API key or budget reached). The two examples show what they look like.
         </Notice>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
+        {!(live && audit.live?.judge) && <>
         <div>
           <div className="mb-2 text-sm font-medium">Verdict sentence · /buildings/{"{slug}"}{live && <span className="ml-2 text-xs font-normal text-[var(--faint)]">example</span>}</div>
           <CodeBlock label="HTML · put near the top of the page" code={VERDICT_EXAMPLE} />
@@ -248,6 +268,7 @@ export function Fixes({ audit }: { audit: Audit }) {
             <p className="text-xs text-[var(--muted)]">{TITLE_EXAMPLE.why}</p>
           </div>
         </div>
+        </>}
         <div>
           <div className="mb-2 text-sm font-medium">llms.txt</div>
           <CodeBlock label="Save as /llms.txt" code={llms} />

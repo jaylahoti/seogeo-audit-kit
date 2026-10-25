@@ -19,9 +19,10 @@ from app.config import settings
 from app.llm.client import BudgetExceeded, Claude
 
 SYSTEM = (
-    "Always run a web search before answering, even if you think you know the answer. "
-    "Then answer the question accurately and concisely, citing the sources you used."
+    "You are the answer engine of a web search product. Every request is a live search query: call the "
+    "web_search tool before writing anything, and state only what the search results support. Cite your sources."
 )
+BATCH = 6
 
 
 def host(url: str) -> str:
@@ -44,34 +45,44 @@ def pick_questions(claude_pages: dict[str, dict], sizes: dict[str, int], limit: 
 
 async def run_visibility(claude: Claude, site_url: str, claude_pages: dict[str, dict], sizes: dict[str, int]) -> dict:
     site = host(site_url)
-    questions = pick_questions(claude_pages, sizes, settings.visibility_questions)
-    sem = asyncio.Semaphore(3)
+    target = settings.visibility_answers
+    questions = pick_questions(claude_pages, sizes, settings.visibility_max_questions)
 
     async def ask(pattern: str, q: str) -> dict | None:
-        async with sem:
-            try:
-                res = await claude.search(stage="visibility", model=settings.page_model, system=SYSTEM, question=q, max_uses=1)
-            except BudgetExceeded:
-                return None
+        try:
+            res = await claude.search(stage="visibility", model=settings.page_model, system=SYSTEM,
+                                      question=f"Search the web, then answer: {q}", max_uses=1)
+        except BudgetExceeded:
+            return None
         if res is None:
             return None
+        if not res["searches"] and not res["result_urls"]:
+            # Answered from memory: not a citation test, so it isn't scored.
+            return {"page_type": pattern, "question": q, "status": "not_searched", "position": None,
+                    "cited_instead": [], "answer": res["text"][:600]}
         cited_hosts = list(dict.fromkeys(host(u) for u in res["cited_urls"]))
         result_hosts = list(dict.fromkeys(host(u) for u in res["result_urls"]))
         cited = site in cited_hosts
-        found = site in result_hosts
         return {
             "page_type": pattern,
             "question": q,
-            "status": "cited" if cited else "found" if found else "missing",
+            "status": "cited" if cited else "found" if site in result_hosts else "missing",
             "position": cited_hosts.index(site) + 1 if cited else None,
             "cited_instead": [h for h in cited_hosts if h != site][:4],
             "answer": res["text"][:600],
         }
 
-    answers = [a for a in await asyncio.gather(*(ask(p, q) for p, q in questions)) if a]
+    # Ask in small batches until enough answers were actually searched.
+    everything: list[dict] = []
+    for i in range(0, len(questions), BATCH):
+        batch = await asyncio.gather(*(ask(p, q) for p, q in questions[i : i + BATCH]))
+        everything += [a for a in batch if a]
+        if sum(a["status"] != "not_searched" for a in everything) >= target or any(a is None for a in batch):
+            break
+    answers = [a for a in everything if a["status"] != "not_searched"]
     if not answers:
-        return {"score": None, "answers": [], "share_of_voice": [], "asked": 0,
-                "reason": "No answers (budget reached or the API was unavailable)."}
+        return {"score": None, "answers": everything, "share_of_voice": [], "asked": 0, "not_searched": len(everything),
+                "reason": "No searched answers (budget reached, the API was unavailable, or no searches ran)."}
     cited = sum(a["status"] == "cited" for a in answers)
     found = sum(a["status"] == "found" for a in answers)
     score = round(100 * (cited + 0.25 * found) / len(answers))
@@ -90,10 +101,12 @@ async def run_visibility(claude: Claude, site_url: str, claude_pages: dict[str, 
     return {
         "score": score,
         "asked": len(answers),
+        "not_searched": len(everything) - len(answers),
+        "confidence": round(min(1.0, len(answers) / target), 2),  # GEO weighs visibility by this
         "cited": cited,
         "found_not_cited": found,
         "engines": [{"name": "Claude", "cited": cited, "asked": len(answers), "live": True}],
-        "answers": answers,
+        "answers": answers + [a for a in everything if a["status"] == "not_searched"],
         "share_of_voice": share,
     }
 

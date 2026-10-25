@@ -55,8 +55,8 @@ export function aiRows(audit: Audit): AiRow[] {
         verdict: !ids.has("no_verdict"),
         answerFirst: !ids.has("facts_buried"),
         noPlaceholders: !ids.has("visible_placeholders"),
-        facts: null,
-        titleIntent: null,
+        facts: audit.live!.claudePages[t.pattern]?.facts_in_text ?? null,
+        titleIntent: audit.live!.claudePages[t.pattern] ? (audit.live!.claudePages[t.pattern].title_matches_intent ?? 0) >= 0.5 : null,
       };
     });
 }

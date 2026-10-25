@@ -74,9 +74,10 @@ def geo_score(access: dict, readiness: dict, visibility: dict) -> dict:
     available = {k: v for k, v in parts.items() if v is not None}
     if not available:
         return {"score": None, "partial": True}
-    total_w = sum(WEIGHTS[k] for k in available)
-    score = round(sum(v * WEIGHTS[k] for k, v in available.items()) / total_w)
-    return {"score": score, "partial": len(available) < len(parts), "weights": WEIGHTS}
+    # Visibility from few searched answers is noisy, so it counts in proportion to its sample.
+    weights = {k: WEIGHTS[k] * (visibility.get("confidence", 1.0) if k == "visibility" else 1.0) for k in available}
+    score = round(sum(v * weights[k] for k, v in available.items()) / sum(weights.values()))
+    return {"score": score, "partial": len(available) < len(parts), "weights": weights}
 
 
 def compute(result: dict) -> dict:
@@ -85,7 +86,8 @@ def compute(result: dict) -> dict:
     readiness = readiness_score(result.get("templates", []))
     vis = result.get("visibility") or {}
     if vis.get("score") is not None:
-        visibility = {"score": vis["score"], "engines": vis.get("engines", []), "asked": vis.get("asked")}
+        visibility = {"score": vis["score"], "engines": vis.get("engines", []), "asked": vis.get("asked"),
+                      "confidence": vis.get("confidence", 1.0)}
     else:
         visibility = {"score": None, "status": "pending",
                       "reason": vis.get("reason") or "Needs AI citation checks (Claude with web search)."}

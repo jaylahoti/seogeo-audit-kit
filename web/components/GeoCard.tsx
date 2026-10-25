@@ -30,7 +30,9 @@ export function GeoCard({ geo }: { geo: GeoScore }) {
                 <span><span className="font-medium">{label}</span> <span className="text-[11px] text-[var(--faint)]">{w}</span></span>
                 <span className="min-w-0">
                   {v == null ? <span className="block truncate text-xs text-[var(--faint)]">{geo.visibility.reason ?? "Pending"}</span> : <Bar value={v} />}
-                  <span className="mt-0.5 block truncate text-[11px] text-[var(--faint)]">{q}</span>
+                  <span className="mt-0.5 block truncate text-[11px] text-[var(--faint)]">
+                    {q}{k === "visibility" && geo.visibility.asked != null ? ` · based on ${geo.visibility.asked} searched answers${(geo.visibility.confidence ?? 1) < 1 ? ", weighted less" : ""}` : ""}
+                  </span>
                 </span>
                 <span className="mono text-right" style={{ color: v == null ? "var(--faint)" : scoreColor(v) }}>{v ?? "—"}</span>
               </li>

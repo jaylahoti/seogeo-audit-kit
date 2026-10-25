@@ -80,9 +80,19 @@ export function toAudit(a: ApiAudit): Audit {
   const last = a.events[a.events.length - 1]?.t ?? first;
   const cwvBy: Record<string, any> = Object.fromEntries((r.cwv ?? []).map((c: any) => [c.pattern, c])); // eslint-disable-line @typescript-eslint/no-explicit-any
 
+  const answersBy: Record<string, any[]> = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
+  for (const a of r.visibility?.answers ?? []) (answersBy[a.page_type] ??= []).push(a);
+
   const templates: Template[] = (r.templates ?? []).map((t: any, i: number) => { // eslint-disable-line @typescript-eslint/no-explicit-any
     const c = cwvBy[t.pattern];
+    const ans = answersBy[t.pattern];
+    const pc = r.claude_pages?.[t.pattern];
     return {
+      citation: ans?.length
+        ? { asked: ans.length, cited: ans.filter((a) => a.status === "cited").length,
+            citedInstead: [...new Set(ans.flatMap((a) => a.cited_instead as string[]))].slice(0, 5) as string[] }
+        : undefined,
+      questions: pc?.questions?.map((q: { question: string }) => q.question).slice(0, 4),
       id: `t${i}`,
       pattern: t.variant ? `${t.pattern} · layout ${t.variant}` : t.pattern,
       pages: t.estimated_pages,
@@ -93,13 +103,20 @@ export function toAudit(a: ApiAudit): Audit {
       cwv: c && c.source !== "error" ? { lcp: c.lcp_ms != null ? c.lcp_ms / 1000 : null, cls: c.cls, inp: c.inp_ms, source: c.source } : undefined,
       findings: (t.findings ?? []).map((f: any): Finding => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
         id: f.id, area: f.area, severity: f.severity, title: f.title, detail: f.detail, pages: f.pages,
-        affected: f.affected, sampled: f.sampled, examples: f.examples, method: f.method,
+        affected: f.affected, sampled: f.sampled, examples: f.examples, method: f.method, fix: f.fix,
       })),
       samples: (t.samples ?? []).map((s: any) => ({ url: s.url, status: s.status, words: s.words, schema: s.schema, title: s.title, ms: s.ms })), // eslint-disable-line @typescript-eslint/no-explicit-any
     };
   });
 
   const live: LiveExtras = {
+    claudeEnabled: (r.claude?.calls?.length ?? 0) > 0,
+    claudeSpent: r.claude?.spent ?? 0,
+    claudePages: r.claude_pages ?? {},
+    visibility: r.visibility ?? null,
+    judge: r.judge ?? null,
+    gaps: r.question_gaps ?? [],
+    monitoring: r.monitoring ?? null,
     sitemapSource: r.sitemap?.source === "links" ? "links" : "sitemap",
     pageCount: {
       leavesTotal: r.sitemap?.leaves_total ?? 0,
@@ -147,8 +164,8 @@ export function toAudit(a: ApiAudit): Audit {
     ranAt: new Date(a.created_at * 1000).toISOString(),
     urls: exact ? exact.urls : r.sitemap?.urls_estimated ?? 0,
     scores: r.scores ?? { seo: 0, ai: 0 },
-    cost: stagesDone.reduce((s, x) => s + x.cost, 0),
-    naiveCost: 0,
+    cost: r.claude?.spent ?? stagesDone.reduce((s, x) => s + x.cost, 0),
+    naiveCost: r.naive_cost_usd ?? 0,
     durationSec: Math.round(last - first),
     templates,
     stages: stagesDone,

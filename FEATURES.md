@@ -41,36 +41,38 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 - ✅ Verdict sentence (heuristic; Claude confirms on Day 2)
 - ✅ Facts up front (heuristic; Claude confirms on Day 2)
 - ✅ Placeholder values in visible text ("-%", "NaN", "undefined", "{{…}}")
-- ⬜ Fact-extraction test (Claude): key facts extracted and checked against page data
-- ⬜ Title template vs question intent
+- ✅ Fact-extraction test (Claude Haiku): key facts in text and in JSON-LD, per page type
+- ✅ Title template vs question intent (Claude)
 
 ### Module 7 — What AI sees
 - ✅ Each template's sample fetched raw (no JS) vs rendered in headless Chromium, with every browser request checked against the SSRF guard
 - ✅ Diff: text share, headings, links and JSON-LD that only exist after JavaScript runs
 
 ### Module 12 — Fix generators
-- ⬜ JSON-LD per template (validated before shown), verdict block, title template, summary block — Claude, Day 2
+- ✅ JSON-LD, verdict sentence and title template per page type (Claude Sonnet judge); JSON-LD validated before it's shown
 - ✅ llms.txt and robots.txt generators (built from the audit's templates, sitemaps and current bot policy)
 
 ### GEO score
 - ✅ GEO = Access 30% + Readiness 40% + Visibility 30%; missing parts are left out and marked partial
 - ✅ Access from robots.txt policy, llms.txt, JavaScript-only content (page-weighted), click depth — every deduction listed
 - ✅ Readiness from the AI-readiness checks, page-weighted (Claude's fact extraction joins on Day 2)
-- ⬜ Visibility from citation checks with web search (Claude, Day 2; other engines with your own keys)
+- ✅ Visibility from citation checks with web search (cited / found-not-cited / missing), weighted by sample size
 
-## Stage 2 — AI + product (Day 2)
-- ⬜ Judge agent: merge findings per template, rank by pages × severity; model router (rules → Haiku → Sonnet)
-- ⬜ Web UI wired to the API: live progress over SSE, real report
-- ⬜ Postgres + Redis job queue (arq) + worker; share links; PDF export
-- ⬜ Module 13 — Question gaps: question families → template → page exists / answers / extractable
-- ⬜ Module 10 — Monitoring: scheduled re-audits, per-template regressions, email/Slack alerts
-- ⬜ Module 11 — GitHub Action (fail a PR when a template's score drops) + MCP server
+## Stage 2 — AI + product (Day 2) ✅
+- ✅ Judge (Sonnet, one call): summary and top fixes; router: rules → Haiku per page → Sonnet once; per-audit budget cap
+- ✅ Web UI wired to the API: live progress over SSE, real report
+- ✅ Saved audits (SQLite by default, Postgres via DATABASE_URL); share links survive restarts; PDF via print
+- ⬜ Redis job queue + separate worker (only needed for multi-instance hosting)
+- ✅ Module 13 — Question gaps: questions per page type → page answers it / facts extractable / AI cites the site
+- ✅ Module 10 — Monitoring: compare with the previous audit (deterministic checks only), score history, scheduled re-audits, Slack-compatible webhook
+- ✅ Module 11 — CLI with --fail-on rules, GitHub Action, MCP server (audit_site, get_report, get_page_type, check_page, get_llms_txt)
 
 ## Stage 3 — Connect + track (Day 3)
 - ⬜ Module 2 — Google Search Console (OAuth, read-only): indexed vs submitted and clicks per template, URL Inspection sample
 - ⬜ Module 8 — Bing Webmaster: Bing indexation per template (ChatGPT search relies on Bing)
 - ⬜ Module 9 — AI referral traffic: chatgpt.com / perplexity.ai / gemini / claude visits per template (GA4 or PostHog)
-- ⬜ Module 5 — AI visibility tracking: fixed question set on a schedule, citation share, share of voice, competitors cited (Claude + optional ChatGPT / Perplexity / Gemini keys), own budget cap
+- ✅ Module 5 — AI visibility with Claude (questions from page checks, share of voice, competitors cited)
+- ⬜ Module 5 — other engines (ChatGPT / Perplexity / Gemini) with your own keys
 - ⬜ Module 6 — AI crawler analytics: upload or stream access logs → which AI bots crawl which templates, how often, status codes
 - ⬜ Evals: labelled sites, clustering ARI, check precision, judge κ — gate every deploy
 - ⬜ Deploy: Vercel (web) + Railway/Fly (API + worker)

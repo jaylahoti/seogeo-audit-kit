@@ -50,18 +50,22 @@ def test_monitoring_compare():
     from app.monitoring import compare
 
     prev = {"templates": [{"pattern": "/b/{slug}", "estimated_pages": 1000, "seo_score": 90, "ai_score": 80,
-                           "findings": [{"id": "title_long", "severity": "medium", "title": "Long titles", "detail": "", "pages": 500}]}],
-            "geo": {"score": 70}, "robots": {"blocked_retrieval_bots": []}, "llms_txt": {"found": True}}
+                           "findings": [{"id": "title_long", "area": "seo", "severity": "medium", "title": "Long titles", "detail": "", "pages": 500, "affected": 5, "sampled": 5, "method": "rule"}]}],
+            "geo": {"score": 70}, "visibility": {"confidence": 1.0}, "robots": {"blocked_retrieval_bots": []}, "llms_txt": {"found": True}}
     cur = {"templates": [{"pattern": "/b/{slug}", "estimated_pages": 1000, "seo_score": 88, "ai_score": 60,
-                          "findings": [{"id": "jsonld_missing", "severity": "high", "title": "No JSON-LD", "detail": "", "pages": 1000}]}],
-           "geo": {"score": 58}, "robots": {"blocked_retrieval_bots": ["PerplexityBot"]}, "llms_txt": {"found": False}}
+                          "findings": [{"id": "jsonld_missing", "area": "ai", "severity": "high", "title": "No JSON-LD", "detail": "", "pages": 1000, "affected": 5, "sampled": 5, "method": "rule"},
+                                       {"id": "no_verdict", "area": "ai", "severity": "medium", "title": "No verdict", "detail": "", "pages": 1000, "affected": 5, "sampled": 5, "method": "claude"}]}],
+           "geo": {"score": 58}, "visibility": {"confidence": 1.0}, "robots": {"blocked_retrieval_bots": ["PerplexityBot"]}, "llms_txt": {"found": False}}
     kinds = {(c["kind"], c["severity"]) for c in compare(cur, prev)}
     titles = " | ".join(c["title"] for c in compare(cur, prev))
     assert ("regression", "high") in kinds  # AI readiness 80 → 60
     assert "New on /b/{slug}: No JSON-LD" in titles and "Fixed on /b/{slug}: Long titles" in titles
     assert "robots.txt now blocks PerplexityBot" in titles and "llms.txt disappeared" in titles
     assert "GEO score dropped 70 → 58" in titles
-    assert "SEO dropped" not in titles  # 2 points is below the threshold
+    assert "SEO dropped" not in titles  # SEO got better (a long-title finding was fixed)
+    assert "No verdict" not in titles  # Claude judgements don't count as regressions
+    thin = {**cur, "visibility": {"confidence": 0.5}}
+    assert not any("GEO" in c["title"] for c in compare(thin, prev))  # too few answers to compare
 
 
 def test_monitor_routes():
@@ -100,3 +104,13 @@ async def test_mcp_tools_registered():
     assert names == {"audit_site", "get_report", "get_page_type", "check_page", "get_llms_txt"}
     missing = await server.call_tool("get_report", {"audit_id": "nope"})
     assert "not found" in str(missing).lower()
+
+
+def test_geo_weighs_thin_visibility_less():
+    from app.checks.geo import geo_score
+
+    full = geo_score({"score": 100}, {"score": 50}, {"score": 100, "confidence": 1.0})["score"]
+    thin = geo_score({"score": 100}, {"score": 50}, {"score": 100, "confidence": 0.25})["score"]
+    none = geo_score({"score": 100}, {"score": 50}, {"score": None})["score"]
+    assert full == 80 and none == round((100 * 0.3 + 50 * 0.4) / 0.7)
+    assert none < thin < full  # a few answers move the score, but not as much as a full sample

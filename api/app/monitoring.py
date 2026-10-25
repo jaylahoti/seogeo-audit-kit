@@ -23,6 +23,20 @@ from app.store import store
 
 log = logging.getLogger(__name__)
 SCORE_DROP = 5
+# Model judgements (Claude, heuristics) vary a little between runs; only deterministic checks
+# can signal a real change to the site, so regressions are computed from those alone.
+DETERMINISTIC = {"rule", "render", "psi", "crawl"}
+PENALTY = {"high": 25, "medium": 10, "low": 4}
+
+
+def _det(findings: list[dict]) -> list[dict]:
+    return [f for f in findings if f.get("method", "rule") in DETERMINISTIC]
+
+
+def _det_score(findings: list[dict], area: str) -> int:
+    pen = sum(PENALTY[f["severity"]] * (f["affected"] / f["sampled"] if f.get("sampled") else 1)
+              for f in _det(findings) if f["area"] == area)
+    return max(0, round(100 - pen))
 CHECK_EVERY_S = 60
 
 
@@ -37,17 +51,19 @@ def compare(current: dict, previous: dict) -> list[dict]:
         p = prev_t.get(t["pattern"])
         if not p:
             continue
-        for key, label in (("seo_score", "SEO"), ("ai_score", "AI readiness")):
-            a, b = p.get(key), t.get(key)
-            if a is not None and b is not None and a - b >= SCORE_DROP:
+        for area, label in (("seo", "SEO"), ("ai", "AI readiness")):
+            if not p.get("findings") and p.get(f"{area}_score") is None:
+                continue
+            a, b = _det_score(p.get("findings", []), area), _det_score(t.get("findings", []), area)
+            if a - b >= SCORE_DROP:
                 add("high" if a - b >= 15 else "medium", "regression", f"{label} dropped {a} → {b} on {t['pattern']}",
                     pages=t["estimated_pages"], page_type=t["pattern"])
-        old = {f["id"] for f in p.get("findings", [])}
-        new = {f["id"] for f in t.get("findings", [])}
-        for f in t.get("findings", []):
+        old = {f["id"] for f in _det(p.get("findings", []))}
+        new = {f["id"] for f in _det(t.get("findings", []))}
+        for f in _det(t.get("findings", [])):
             if f["id"] not in old and f["severity"] in ("high", "medium"):
                 add(f["severity"], "new_issue", f"New on {t['pattern']}: {f['title']}", f["detail"], f["pages"], t["pattern"])
-        for f in p.get("findings", []):
+        for f in _det(p.get("findings", [])):
             if f["id"] not in new and f["severity"] in ("high", "medium"):
                 add("low", "fixed", f"Fixed on {t['pattern']}: {f['title']}", pages=t["estimated_pages"], page_type=t["pattern"])
 
@@ -57,10 +73,14 @@ def compare(current: dict, previous: dict) -> list[dict]:
             v = (v or {}).get(k)
         return v
 
-    for path, label in ((("geo", "score"), "GEO score"), (("visibility", "score"), "AI visibility")):
-        a, b = score(previous, *path), score(current, *path)
-        if a is not None and b is not None and a - b >= SCORE_DROP:
-            add("high" if a - b >= 15 else "medium", "regression", f"{label} dropped {a} → {b}")
+    # GEO and visibility move with the visibility sample, so compare them only when both runs
+    # had enough searched answers to be trusted.
+    confident = all((score(r, "visibility", "confidence") or 0) >= 0.75 for r in (previous, current))
+    if confident:
+        for path, label in ((("geo", "score"), "GEO score"), (("visibility", "score"), "AI visibility")):
+            a, b = score(previous, *path), score(current, *path)
+            if a is not None and b is not None and a - b >= SCORE_DROP:
+                add("high" if a - b >= 15 else "medium", "regression", f"{label} dropped {a} → {b}")
 
     before = set(score(previous, "robots", "blocked_retrieval_bots") or [])
     after = set(score(current, "robots", "blocked_retrieval_bots") or [])

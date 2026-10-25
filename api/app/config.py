@@ -12,7 +12,8 @@ class Settings(BaseSettings):
     max_audit_cost_usd: float = 0.50
     render_pages: bool = True  # headless-browser "What AI sees" step (CI can turn it off)
     claude_templates: int = 12  # largest page types that get Claude page checks
-    visibility_questions: int = 10  # citation searches per audit  # optional free Google key for PageSpeed Insights; raises the quota
+    visibility_answers: int = 8  # searched answers to collect for the visibility score
+    visibility_max_questions: int = 16  # stop asking after this many (unsearched answers are cheap)  # optional free Google key for PageSpeed Insights; raises the quota
     # Smart sampling limits. The hosted demo keeps these defaults; self-hosters can raise them.
     max_urls: int = 5000  # sitemap URLs kept for template detection
     max_sitemaps: int = 50  # sitemap files read per audit (the rest are estimated)
