@@ -20,8 +20,12 @@ const PLAN: [string, string][] = [
   ["links", "Link checks"],
   ["render", "What AI sees"],
   ["cwv", "Core Web Vitals"],
+  ["claude_pages", "Claude page checks"],
+  ["visibility", "AI visibility"],
   ["score", "Score and generate fixes"],
+  ["judge", "Judge and write fixes"],
 ];
+const CLAUDE_STEPS: Record<string, string> = { claude_pages: "Page checks · Haiku", visibility: "Visibility · Haiku + search", judge: "Judge · Sonnet" };
 
 type StageState = { status: "waiting" | "running" | "done" | "error"; label: string; detail?: string; ms?: number };
 type Tpl = { pattern: string; estimated_pages: number };
@@ -36,6 +40,8 @@ export function LiveRun({ id, url }: { id: string; url: string }) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [costs, setCosts] = useState<Record<string, { cost: number; calls: number; done: boolean }>>({});
+  const [budget, setBudget] = useState<number | null>(null);
   const started = useRef(Date.now());
 
   useEffect(() => {
@@ -55,7 +61,14 @@ export function LiveRun({ id, url }: { id: string; url: string }) {
           ...s,
           [e.key!]: { status: e.status as StageState["status"], label: e.label ?? s[e.key!]?.label ?? e.key!, detail: e.detail, ms: e.ms },
         }));
+        if (e.key in CLAUDE_STEPS && e.status === "done") {
+          setCosts((c) => ({ ...c, [e.key!]: { cost: e.cost ?? 0, calls: c[e.key!]?.calls ?? 0, done: true } }));
+        }
         if (e.status === "done" && (e.key === "templates" || e.key === "layouts" || e.key === "score")) refresh();
+      } else if (e.type === "progress" && e.key && e.key in CLAUDE_STEPS) {
+        setCosts((c) => ({ ...c, [e.key!]: { cost: Number(e.cost ?? 0), calls: Number(e.calls ?? 0), done: false } }));
+        if (e.budget != null) setBudget(Number(e.budget));
+        setStages((s) => ({ ...s, [e.key!]: { ...s[e.key!], detail: `${e.calls} Claude calls so far · $${Number(e.cost).toFixed(3)}` } }));
       } else if (e.type === "progress" && e.key) {
         const detail = e.key === "sitemap" ? `${fmt(Number(e.urls))} URLs from ${e.sitemaps} sitemaps so far` : `${e.pages} of ${e.of} pages`;
         setStages((s) => ({ ...s, [e.key!]: { ...s[e.key!], detail } }));
@@ -126,8 +139,24 @@ export function LiveRun({ id, url }: { id: string; url: string }) {
       <aside className="space-y-4">
         <div className="card p-4">
           <div className="text-xs text-[var(--muted)]">Claude cost so far</div>
-          <div className="mono mt-1 text-3xl font-semibold tabular-nums">$0.000</div>
-          <div className="mt-1 text-xs text-[var(--faint)]">This audit uses rules, ML and a headless browser only. Claude checks arrive next.</div>
+          <div className="mono mt-1 text-3xl font-semibold tabular-nums">${Object.values(costs).reduce((n, c) => n + c.cost, 0).toFixed(3)}</div>
+          <ul className="mt-3 space-y-1.5 text-xs">
+            {Object.entries(CLAUDE_STEPS).map(([k, label]) => {
+              const c = costs[k];
+              const st = stages[k]?.status;
+              return (
+                <li key={k} className="flex items-center justify-between gap-2">
+                  <span className={st === "waiting" ? "text-[var(--faint)]" : ""}>{label}</span>
+                  <span className="mono text-[var(--muted)]">
+                    {c ? `${c.calls ? `${c.calls} calls · ` : ""}$${c.cost.toFixed(3)}` : st === "done" ? "skipped" : "—"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-3 text-[11px] text-[var(--faint)]">
+            Everything else is code, ML and a headless browser: $0.{budget != null && ` Budget for this audit: $${budget.toFixed(2)}.`}
+          </div>
         </div>
         <div className="card p-4">
           <div className="mb-3 flex items-baseline justify-between">

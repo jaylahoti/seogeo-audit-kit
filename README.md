@@ -155,6 +155,13 @@ Quotes Claude returns are checked against the page text, and generated JSON-LD m
 the required properties for its type before it's shown. Without `ANTHROPIC_API_KEY` the audit still runs
 on rules, ML and the headless browser, and the Claude stages are skipped.
 
+You can see all of this in the app:
+
+- **While it runs:** the progress screen shows Claude's cost so far, per step, against the budget.
+- **Under the hood** (in every report): how many pages reach each step, which model did what with its tokens and cost, and what everything else cost ($0).
+- **Why?** on each Claude finding: what Claude was shown for each sample page, what it answered, and whether its quote passed the on-page check. In one test run, 18 of 57 quoted sentences weren't on the page and were dropped.
+- **/how-it-works:** the pipeline, model routing and guardrails on one public page.
+
 ## Saved audits and monitoring
 
 Audits are saved to a database (SQLite by default, Postgres via `DATABASE_URL`), so reports survive

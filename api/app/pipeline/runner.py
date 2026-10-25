@@ -69,6 +69,23 @@ class AuditError(Exception):
     """A problem with the site being audited; the message is shown to the user as-is."""
 
 
+@asynccontextmanager
+async def live_cost(rec: AuditRecord, claude, key: str, every: float = 1.5):
+    """While a Claude step runs, emit its running cost so the progress screen can show it live."""
+    async def tick():
+        while True:
+            await asyncio.sleep(every)
+            st = claude.ledger.for_stage(key)
+            await rec.emit({"type": "progress", "key": key, "calls": st["calls"], "cost": st["cost"],
+                            "spent": round(claude.ledger.spent, 5), "budget": claude.ledger.budget})
+
+    task = asyncio.create_task(tick())
+    try:
+        yield
+    finally:
+        task.cancel()
+
+
 async def run_audit(rec: AuditRecord) -> None:
     async with _slots:
         rec.status = "running"
@@ -311,7 +328,10 @@ async def _pipeline(rec: AuditRecord, client) -> None:
         else:
             picks = [x for x in big if x.t.pattern not in ("/", "/{static}")][: settings.claude_templates]
             jobs = [(x.t.pattern, f) for x in picks for f in x.samples if f.status == 200]
-            checks = await page_checks.check_pages(claude, jobs)
+            evidence: dict[str, list[dict]] = {}
+            async with live_cost(rec, claude, "claude_pages"):
+                checks = await page_checks.check_pages(claude, jobs, evidence)
+            rec.result["claude_evidence"] = evidence
             summaries = {}
             for x in picks:
                 cs = checks.get(x.t.pattern)
@@ -331,7 +351,8 @@ async def _pipeline(rec: AuditRecord, client) -> None:
         if not claude.enabled or not rec.result.get("claude_pages"):
             s["detail"] = "Skipped: needs Claude page checks"
         else:
-            vis = await run_visibility(claude, url, rec.result["claude_pages"], sizes)
+            async with live_cost(rec, claude, "visibility"):
+                vis = await run_visibility(claude, url, rec.result["claude_pages"], sizes)
             rec.result["visibility"] = vis
             rec.result["question_gaps"] = question_gaps(rec.result["claude_pages"], vis)
             st = claude.ledger.for_stage("visibility")
@@ -362,7 +383,8 @@ async def _pipeline(rec: AuditRecord, client) -> None:
         if not claude.enabled:
             s["detail"] = "Skipped: no ANTHROPIC_API_KEY"
         else:
-            verdict = await judge(claude, rec.result)
+            async with live_cost(rec, claude, "judge"):
+                verdict = await judge(claude, rec.result)
             if verdict:
                 rec.result["judge"] = verdict
                 _attach_fixes(rec.result["templates"], verdict["template_fixes"])

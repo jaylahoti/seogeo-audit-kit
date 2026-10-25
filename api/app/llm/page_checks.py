@@ -89,8 +89,24 @@ def grounded(check: PageCheck, page: PageFacts) -> PageCheck:
     return check
 
 
-async def check_pages(claude: Claude, jobs: list[tuple[str, PageFacts]]) -> dict[str, list[PageCheck]]:
-    """jobs: (pattern, page). Returns pattern -> checks. Stops quietly when the budget runs out."""
+def evidence(page: PageFacts, raw: PageCheck, kept: PageCheck) -> dict:
+    """What Claude was shown and what it answered, plus the guardrail result, for the report's "Why?"."""
+    return {
+        "url": page.url,
+        "shown": {"title": page.title, "words": page.word_count, "excerpt": page.main_text[:500],
+                  "jsonld_types": sorted({str(b.data.get("@type")) for b in page.jsonld if isinstance(b.data, dict) and b.data.get("@type")})},
+        "answer": kept.model_dump(),
+        "guardrail": (
+            None if not raw.verdict_sentence
+            else {"check": "quote is on the page", "passed": kept.verdict_sentence is not None, "quote": raw.verdict_sentence}
+        ),
+    }
+
+
+async def check_pages(claude: Claude, jobs: list[tuple[str, PageFacts]],
+                      evidence_out: dict[str, list[dict]] | None = None) -> dict[str, list[PageCheck]]:
+    """jobs: (pattern, page). Returns pattern -> checks. Stops quietly when the budget runs out.
+    If `evidence_out` is given, it collects per-page inputs, answers and guardrail results."""
     out: dict[str, list[PageCheck]] = {}
     sem = asyncio.Semaphore(4)
 
@@ -102,7 +118,10 @@ async def check_pages(claude: Claude, jobs: list[tuple[str, PageFacts]]) -> dict
             except BudgetExceeded:
                 return
             if res:
-                out.setdefault(pattern, []).append(grounded(res, page))
+                kept = grounded(res, page)
+                out.setdefault(pattern, []).append(kept)
+                if evidence_out is not None:
+                    evidence_out.setdefault(pattern, []).append(evidence(page, res, kept))
 
     await asyncio.gather(*(one(t, p) for t, p in jobs))
     return out

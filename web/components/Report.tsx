@@ -117,7 +117,7 @@ export function Report({ audit }: { audit: Audit }) {
           {current === "gaps" && (audit.live?.gaps?.length ? <QuestionGapsLive audit={audit} /> : <QuestionGaps />)}
           {current === "ci" && <CiMcp />}
           {current === "ml" && <><ModuleHead title="ML Lab" desc="How the template detection and the AI judge are measured." access="free" /><MlLab audit={audit} /></>}
-          {current === "trace" && <><ModuleHead title="Trace and cost" desc="Every pipeline stage, how long it took and what it cost." access="free" /><Trace audit={audit} /></>}
+          {current === "trace" && <><ModuleHead title="Under the hood" desc="What ran on every page, what only saw samples, which Claude model did what, and what it cost." access="free" /><Trace audit={audit} /></>}
 
           {current !== "overview" && (
             <div className="mt-10 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-5 text-sm">
@@ -563,11 +563,144 @@ function SearchConsole({ templates }: { templates: Template[] }) {
   );
 }
 
+const STEP_KIND: Record<string, "code" | "ml" | "browser" | "claude"> = {
+  robots: "code", llms_txt: "code", sitemap: "code", crawl: "code", checks: "code", links: "code", score: "code",
+  templates: "ml", layouts: "ml",
+  render: "browser", cwv: "browser",
+  claude_pages: "claude", visibility: "claude", judge: "claude",
+};
+const KIND_LABEL = { code: "Code", ml: "ML", browser: "Browser", claude: "Claude" } as const;
+const KIND_COLOR = { code: "var(--line-strong)", ml: "var(--good)", browser: "var(--warn)", claude: "var(--accent)" } as const;
+const MODEL_NAME = (m: string) => m.replace(/^claude-/, "").replace(/-(\d)-(\d)$/, " $1.$2").replace(/^./, (c) => c.toUpperCase());
+const STAGE_JOB: Record<string, string> = {
+  claude_pages: "Reads each sample page: key facts, quotable summary, title fit, questions",
+  visibility: "Asks real questions with web search, checks if your site is cited",
+  judge: "Reads every finding once, ranks fixes, writes code for each page type",
+};
+
+function KindChip({ k }: { k: keyof typeof KIND_LABEL }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--line)] px-1.5 py-px text-[10px] text-[var(--muted)]">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: KIND_COLOR[k] }} />{KIND_LABEL[k]}
+    </span>
+  );
+}
+
+/** Live audits: how few pages reach the expensive steps, which model does what, and where the money goes. */
+function UnderTheHood({ audit }: { audit: Audit }) {
+  const live = audit.live!;
+  const calls = live.claudeCalls;
+  const pagesRead = calls.filter((c) => c.stage === "claude_pages").length;
+  const funnel = [
+    { label: "Pages on the site", value: audit.urls, how: "Estimated from the sitemap", kind: "code" as const },
+    { label: "URLs read from sitemaps", value: live.pageCount.urlsSampled, how: "Smart sample across every sitemap family", kind: "code" as const },
+    { label: "Page types found", value: audit.templates.length, how: "URL patterns + page-structure clustering", kind: "ml" as const },
+    { label: "Pages fetched and checked", value: live.crawl.ok, how: "A few per page type, 24 SEO + AI rules each", kind: "code" as const },
+    { label: "Pages Claude read", value: pagesRead, how: "Haiku, one call per sample page", kind: "claude" as const },
+    { label: "Judge calls", value: calls.filter((c) => c.stage === "judge").length, how: "Sonnet, once for the whole site", kind: "claude" as const },
+  ];
+  const max = Math.max(1, funnel[0].value);
+
+  const groups = new Map<string, { stage: string; model: string; calls: number; tin: number; tout: number; searches: number; cost: number; failed: number }>();
+  for (const c of calls) {
+    const k = `${c.stage}|${c.model}`;
+    const g = groups.get(k) ?? { stage: c.stage, model: c.model, calls: 0, tin: 0, tout: 0, searches: 0, cost: 0, failed: 0 };
+    g.calls++; g.tin += c.input_tokens; g.tout += c.output_tokens; g.searches += c.searches; g.cost += c.cost; g.failed += c.ok ? 0 : 1;
+    groups.set(k, g);
+  }
+  const rows = [...groups.values()];
+  const spent = live.claudeSpent;
+  const scale = Math.max(spent, live.claudeBudget || spent, 0.0001);
+  let run = 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold">From {fmt(audit.urls)} pages to {pagesRead} Claude calls</h3>
+          <span className="text-xs text-[var(--faint)]">Cheap steps run on everything; expensive steps only see samples</span>
+        </div>
+        <ol className="mt-3 space-y-2">
+          {funnel.map((f) => (
+            <li key={f.label} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm md:grid-cols-[200px_minmax(0,1fr)_90px]">
+              <div className="flex items-center gap-2"><KindChip k={f.kind} /><span>{f.label}</span></div>
+              <div className="col-span-2 row-start-2 md:col-span-1 md:row-start-auto">
+                <div className="h-2 rounded-full bg-[var(--sunken)]">
+                  <div className="h-2 rounded-full" style={{ width: `${Math.max(0.6, (Math.log10(f.value + 1) / Math.log10(max + 1)) * 100)}%`, background: KIND_COLOR[f.kind] }} />
+                </div>
+                <div className="mt-0.5 text-[11px] text-[var(--faint)]">{f.how}</div>
+              </div>
+              <span className="mono text-right">{fmt(f.value)}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-2 text-[11px] text-[var(--faint)]">Bars use a log scale, otherwise the last rows would be invisible.</p>
+      </div>
+
+      <div className="card overflow-hidden">
+        <div className="border-b border-[var(--line)] px-4 py-3">
+          <h3 className="text-sm font-semibold">Model routing</h3>
+          <p className="text-xs text-[var(--muted)]">The small model does the many repetitive reads; the bigger model is called once, where judgement matters.</p>
+        </div>
+        {rows.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-[var(--muted)]">No Claude calls in this audit (no API key set on the server).</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[620px] text-sm">
+              <thead className="text-left text-xs text-[var(--faint)]">
+                <tr><th className="px-4 py-2 font-normal">Step</th><th className="font-normal">Model</th><th className="text-right font-normal">Calls</th><th className="text-right font-normal">Tokens in / out</th><th className="text-right font-normal">Searches</th><th className="px-4 text-right font-normal">Cost</th></tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--line)]">
+                {rows.map((g) => (
+                  <tr key={g.stage + g.model}>
+                    <td className="px-4 py-2"><div>{audit.stages.find((s) => s.key === g.stage)?.label ?? g.stage}</div><div className="text-xs text-[var(--faint)]">{STAGE_JOB[g.stage]}</div></td>
+                    <td className="mono text-xs">{MODEL_NAME(g.model)}</td>
+                    <td className="mono text-right">{g.calls}{g.failed ? <span className="text-[var(--bad)]"> ({g.failed} failed)</span> : null}</td>
+                    <td className="mono text-right text-xs">{fmt(g.tin)} / {fmt(g.tout)}</td>
+                    <td className="mono text-right">{g.searches || "—"}</td>
+                    <td className="mono px-4 text-right">${g.cost.toFixed(3)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold">Where the money went</h3>
+          <span className="mono text-xs text-[var(--muted)]">${spent.toFixed(3)} of ${live.claudeBudget.toFixed(2)} budget</span>
+        </div>
+        <div className="relative mt-3 h-6 overflow-hidden rounded-md bg-[var(--sunken)]">
+          {rows.map((g) => {
+            const left = (run / scale) * 100;
+            run += g.cost;
+            return <div key={g.stage + g.model} title={`${g.stage} · $${g.cost.toFixed(3)}`} className="absolute top-0 h-6 border-r border-[var(--panel)]" style={{ left: `${left}%`, width: `${(g.cost / scale) * 100}%`, background: "var(--accent)", opacity: 0.45 + 0.55 * (g.cost / Math.max(spent, 0.0001)) }} />;
+          })}
+        </div>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted)]">
+          {rows.map((g) => <span key={g.stage + g.model}>{audit.stages.find((s) => s.key === g.stage)?.label ?? g.stage}: <span className="mono">${g.cost.toFixed(3)}</span> ({spent ? Math.round((g.cost / spent) * 100) : 0}%)</span>)}
+          <span>Everything else: <span className="mono">$0</span></span>
+        </div>
+        {audit.naiveCost > 0 && (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="sunken p-3 text-sm"><div className="text-xs text-[var(--muted)]">This audit</div><div className="mono mt-0.5 text-xl font-semibold">${spent.toFixed(2)}</div></div>
+            <div className="sunken p-3 text-sm"><div className="text-xs text-[var(--muted)]">Sending every page to a large model</div><div className="mono mt-0.5 text-xl font-semibold">${fmt(Math.round(audit.naiveCost))}</div><div className="text-[11px] text-[var(--faint)]">~3k tokens in, 500 out per page at Sonnet prices</div></div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Trace({ audit }: { audit: Audit }) {
   const total = audit.stages.reduce((s, x) => s + x.ms, 0);
   let offset = 0;
   return (
     <div className="space-y-4">
+      {audit.live && <UnderTheHood audit={audit} />}
+      <h3 className="pt-2 text-sm font-semibold">Every step, in order</h3>
       <div className="card divide-y divide-[var(--line)]">
         {audit.stages.map((s) => {
           const left = (offset / total) * 100;
@@ -576,24 +709,24 @@ function Trace({ audit }: { audit: Audit }) {
           return (
             <div key={s.key} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3 text-sm md:grid-cols-[180px_minmax(0,1fr)_120px_70px_70px] md:items-center">
               <div>
-                <div>{s.label}</div>
-                <div className="truncate text-xs text-[var(--muted)]">{s.detail}</div>
+                <div className="flex items-center gap-2">{s.label}{STEP_KIND[s.key] && <KindChip k={STEP_KIND[s.key]} />}</div>
+                <div className="truncate text-xs text-[var(--muted)]" title={s.detail}>{s.detail}</div>
               </div>
               <div className="relative hidden h-2 rounded-full bg-[var(--sunken)] md:block">
-                <div className="absolute h-2 rounded-full" style={{ left: `${left}%`, width: `${width}%`, background: s.model ? "var(--accent)" : "var(--line-strong)" }} />
+                <div className="absolute h-2 rounded-full" style={{ left: `${left}%`, width: `${width}%`, background: KIND_COLOR[STEP_KIND[s.key] ?? (s.model ? "claude" : "code")] }} />
               </div>
-              <span className="hidden text-xs text-[var(--muted)] md:block">{s.model ? `${s.model} · ${fmt(s.tokens ?? 0)} tok` : "code / ML"}</span>
+              <span className="hidden text-xs text-[var(--muted)] md:block">{s.model ? `${s.model} · ${fmt(s.tokens ?? 0)} tok` : s.cost > 0 ? "Claude" : "free"}</span>
               <span className="mono text-right text-xs">{(s.ms / 1000).toFixed(1)}s</span>
               <span className="mono hidden text-right text-xs md:block">${s.cost.toFixed(3)}</span>
             </div>
           );
         })}
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
+      {!audit.live && <div className="grid gap-3 sm:grid-cols-3">
         <div className="sunken p-4 text-sm"><div className="text-xs text-[var(--muted)]">Why it's cheap</div><p className="mt-1">Rules and ML run first for free. Claude only reads 30 sample pages, not 4,812.</p></div>
         <div className="sunken p-4 text-sm"><div className="text-xs text-[var(--muted)]">Model routing</div><p className="mt-1">Haiku for page-level extraction, Sonnet once for judging and writing fixes.</p></div>
         <div className="sunken p-4 text-sm"><div className="text-xs text-[var(--muted)]">Guardrails</div><p className="mt-1">Generated JSON-LD is validated against schema.org before it's shown.</p></div>
-      </div>
+      </div>}
     </div>
   );
 }

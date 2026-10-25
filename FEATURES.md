@@ -65,6 +65,7 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 - ⬜ Redis job queue + separate worker (only needed for multi-instance hosting)
 - ✅ Module 13 — Question gaps: questions per page type → page answers it / facts extractable / AI cites the site
 - ✅ Module 10 — Monitoring: compare with the previous audit (deterministic checks only), score history, scheduled re-audits, Slack-compatible webhook
+- ✅ Explaining the AI/ML: live Claude cost meter while an audit runs; "Under the hood" view (page funnel, model routing, cost by step, every step labelled Code / ML / Browser / Claude); "Why?" on every Claude finding (what Claude was shown, what it answered, guardrail result); public /how-it-works page
 - ✅ Module 11 — CLI with --fail-on rules, GitHub Action, MCP server (audit_site, get_report, get_page_type, check_page, get_llms_txt)
 
 ## Stage 3 — Connect + track (Day 3)

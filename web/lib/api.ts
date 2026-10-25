@@ -94,6 +94,7 @@ export function toAudit(a: ApiAudit): Audit {
         ? { asked: ans.length, cited: ans.filter((a) => a.status === "cited").length,
             citedInstead: [...new Set(ans.flatMap((a) => a.cited_instead as string[]))].slice(0, 5) as string[] }
         : undefined,
+      evidence: r.claude_evidence?.[t.pattern],
       questions: pc?.questions?.map((q: { question: string }) => q.question).slice(0, 4),
       id: `t${i}`,
       pattern: t.variant ? `${t.pattern} · layout ${t.variant}` : t.pattern,
@@ -114,6 +115,8 @@ export function toAudit(a: ApiAudit): Audit {
   const live: LiveExtras = {
     claudeEnabled: (r.claude?.calls?.length ?? 0) > 0,
     claudeSpent: r.claude?.spent ?? 0,
+    claudeBudget: r.claude?.budget ?? 0,
+    claudeCalls: r.claude?.calls ?? [],
     claudePages: r.claude_pages ?? {},
     visibility: r.visibility ?? null,
     judge: r.judge ?? null,

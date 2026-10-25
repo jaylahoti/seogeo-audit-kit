@@ -48,6 +48,22 @@ export type Template = {
   samples: SamplePage[];
   examples?: string[];
   passed?: string[];
+  evidence?: ClaudeEvidence[]; // what Claude was shown and answered for each sample page
+};
+
+export type ClaudeEvidence = {
+  url: string;
+  shown: { title: string | null; words: number; excerpt: string; jsonld_types: string[] };
+  answer: {
+    page_type: string;
+    facts: { name: string; value: string | null; in_text: boolean; in_structured_data: boolean }[];
+    verdict_sentence: string | null;
+    facts_up_front: boolean;
+    title_matches_intent: boolean;
+    better_title_template: string | null;
+    questions: { question: string; answered: "yes" | "partial" | "no" }[];
+  };
+  guardrail: { check: string; passed: boolean; quote: string } | null;
 };
 
 export type Stage = { key: string; label: string; detail: string; ms: number; cost: number; tokens?: number; model?: string };
@@ -126,6 +142,8 @@ export type Monitoring = {
 export type LiveExtras = {
   claudeEnabled: boolean;
   claudeSpent: number;
+  claudeBudget: number;
+  claudeCalls: { stage: string; model: string; input_tokens: number; output_tokens: number; searches: number; cost: number; ms: number; ok: boolean }[];
   claudePages: Record<string, ClaudePage>;
   visibility: Visibility | null;
   judge: Judgement | null;

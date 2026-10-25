@@ -32,13 +32,13 @@ const REPLACES = [
 const STEPS = [
   ["Read the sitemap", "Smart sampling across every sitemap family, scaled back up to estimate pages per template. robots.txt respected."],
   ["Find the templates", "URL patterns plus page structure, clustered with HDBSCAN."],
-  ["Check a sample", "Rule checks, Core Web Vitals, and Claude reading 5 pages per template."],
+  ["Check a sample", "Rule checks, Core Web Vitals, and Claude reading about 5 pages per template."],
   ["Rank the fixes", "By pages covered × severity, each with the code to fix it."],
 ];
 
 const RUNS_WHERE: { access: Access; text: string }[] = [
   { access: "free", text: "Crawling, technical SEO, Core Web Vitals, what AI sees, AI crawler logs, monitoring, CI." },
-  { access: "claude", text: "Fact extraction, judging and fixes, question gaps, Claude citation tracking. About $0.11 per audit." },
+  { access: "claude", text: "Fact extraction, judging and fixes, question gaps, Claude citation tracking. About $0.20 per audit." },
   { access: "connect", text: "Your Google Search Console, Bing Webmaster, and GA4 or PostHog. Read-only." },
   { access: "key", text: "ChatGPT, Perplexity, Gemini and Copilot citation tracking, when you self-host." },
 ];
@@ -46,7 +46,7 @@ const RUNS_WHERE: { access: Access; text: string }[] = [
 const FAQ = [
   ["Do you check every page?", "No — and you don't need to. Pages built from one template share its problems, so the audit uses smart sampling: it reads a fair sample of your sitemap files across every family and checks about 5 representative pages per template. The report shows exactly how pages were counted, and \u201cCount every page\u201d reads every sitemap file when you need the exact number. On a 1.3M-page site the estimate was within 1% of the full count."],
   ["Why per template?", "A programmatic site has thousands of pages but only a handful of templates. Fix the template and every page built from it is fixed — so that's the unit worth reporting on."],
-  ["What does an audit cost?", "About $0.11 in Claude usage, paid by the hosted demo. Rules and ML run first for free; Claude only reads 30 sample pages."],
+  ["What does an audit cost?", "About $0.20 in Claude usage, paid by the hosted demo. Rules and ML run first for free; Claude only reads about 60 sample pages and the bigger model runs once. Each report shows the exact cost under \u201cUnder the hood\u201d."],
   ["Which parts need my own keys?", "Tracking ChatGPT, Perplexity, Gemini and Copilot citations. Everything else runs on Claude or free Google and Bing APIs."],
   ["Is my site safe to point this at?", "It only fetches public pages, identifies itself as SEOGEOAuditKitBot, respects robots.txt and Crawl-delay, and caps requests per host."],
 ];
@@ -107,7 +107,7 @@ export default function Home() {
             SEO and GEO audits for programmatic sites: rank on Google and get cited by ChatGPT, Perplexity and Claude — reported per template, so every fix shows how many pages it covers.
           </p>
           <div id="audit" className="mt-8 max-w-xl scroll-mt-24"><AuditForm /></div>
-          <p className="mt-3 text-xs text-[var(--faint)]">3 free audits a day · about $0.11 each, paid by us · no sign-up</p>
+          <p className="mt-3 text-xs text-[var(--faint)]">3 free audits a day · about $0.20 each, paid by us · no sign-up</p>
         </div>
         <HeroPreview />
       </section>
@@ -159,7 +159,10 @@ export default function Home() {
       {/* How it works */}
       <section className="border-t border-[var(--line)]">
         <div className="mx-auto max-w-[1280px] px-4 py-20">
-          <h2 className="mb-8 text-3xl font-semibold tracking-tight">How an audit works</h2>
+          <div className="mb-8 flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="text-3xl font-semibold tracking-tight">How an audit works</h2>
+            <Link href="/how-it-works" className="text-sm text-[var(--accent)] hover:underline">The full pipeline, models and guardrails →</Link>
+          </div>
           <ol className="grid gap-px overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--line)] md:grid-cols-4">
             {STEPS.map(([t, d], i) => (
               <li key={t} className="bg-[var(--panel)] p-5">
@@ -247,7 +250,7 @@ export default function Home() {
       <section className="border-t border-[var(--line)] bg-[var(--sunken)]">
         <div className="mx-auto max-w-2xl px-4 py-20 text-center">
           <h2 className="text-3xl font-semibold tracking-tight">See your templates</h2>
-          <p className="mb-6 mt-2 text-[var(--muted)]">Paste a sitemap. Results in about 90 seconds.</p>
+          <p className="mb-6 mt-2 text-[var(--muted)]">Paste a site or sitemap. Results in 2–4 minutes.</p>
           <AuditForm />
         </div>
       </section>

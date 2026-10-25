@@ -20,7 +20,7 @@ export const MODULES: ModuleDef[] = [
   { id: "gaps", label: "Question gaps", group: "Track", access: "claude", num: 13 },
   { id: "ci", label: "CI and MCP", group: "Track", access: "free", num: 11 },
   { id: "ml", label: "ML Lab", group: "Lab", access: "free" },
-  { id: "trace", label: "Trace and cost", group: "Lab", access: "free" },
+  { id: "trace", label: "Under the hood", group: "Lab", access: "free" },
 ];
 
 export const ACCESS_LABEL: Record<Access, string> = {

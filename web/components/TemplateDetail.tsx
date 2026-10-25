@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Finding, Template } from "@/lib/mock";
+import type { ClaudeEvidence, Finding, Template } from "@/lib/mock";
 import { fmt } from "@/lib/mock";
 
 const TABS = [
@@ -37,8 +37,8 @@ export function TemplateDetail({ t }: { t: Template }) {
       </div>
 
       {tab === "ai" && (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <FindingList findings={findings} />
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <FindingList findings={findings} evidence={t.evidence} />
           <div className="space-y-3">
             {t.citation ? (
               <div className="sunken p-3">
@@ -64,8 +64,8 @@ export function TemplateDetail({ t }: { t: Template }) {
       )}
 
       {tab === "seo" && (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <FindingList findings={findings} />
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <FindingList findings={findings} evidence={t.evidence} />
           <div className="space-y-3">
             {t.cwv ? (
               <div className="sunken p-3">
@@ -145,17 +145,18 @@ function Pending({ title, text }: { title: string; text: string }) {
   );
 }
 
-function FindingList({ findings }: { findings: Finding[] }) {
+function FindingList({ findings, evidence }: { findings: Finding[]; evidence?: ClaudeEvidence[] }) {
   if (!findings.length) return <p className="py-4 text-sm text-[var(--muted)]">No issues found here.</p>;
   return (
     <ul className="space-y-3">
-      {findings.map((f) => <FindingCard key={(f.id ?? "") + f.title} f={f} />)}
+      {findings.map((f) => <FindingCard key={(f.id ?? "") + f.title} f={f} evidence={f.method === "claude" ? evidence : undefined} />)}
     </ul>
   );
 }
 
-function FindingCard({ f }: { f: Finding }) {
+function FindingCard({ f, evidence }: { f: Finding; evidence?: ClaudeEvidence[] }) {
   const [show, setShow] = useState(f.severity === "high");
+  const [why, setWhy] = useState(false);
   const [copied, setCopied] = useState(false);
   return (
     <li className="rounded-lg border border-[var(--line)] p-3">
@@ -168,6 +169,11 @@ function FindingCard({ f }: { f: Finding }) {
             <span className="mono text-[var(--muted)]">Fix covers ~{fmt(f.pages)} pages</span>
             {f.sampled != null && f.sampled > 1 && <span className="text-[var(--faint)]">{f.affected} of {f.sampled} samples</span>}
             {f.method && <span className="text-[var(--faint)]">{METHOD_LABEL[f.method] ?? f.method}</span>}
+            {evidence && evidence.length > 0 && (
+              <button className="text-[var(--accent)] hover:underline" onClick={() => setWhy(!why)} aria-expanded={why}>
+                {why ? "Hide why" : "Why?"}
+              </button>
+            )}
             {f.fix && (
               <button className="text-[var(--accent)] hover:underline" onClick={() => setShow(!show)}>
                 {show ? "Hide fix" : `Show fix · ${f.fix.label}`}
@@ -183,6 +189,7 @@ function FindingCard({ f }: { f: Finding }) {
           )}
         </div>
       </div>
+      {why && evidence && <WhyPanel f={f} evidence={evidence} />}
       {f.fix && show && (
         <div className="relative mt-3 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--sunken)]">
           <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-1.5 text-xs text-[var(--muted)]">
@@ -198,6 +205,81 @@ function FindingCard({ f }: { f: Finding }) {
         </div>
       )}
     </li>
+  );
+}
+
+const ANSWERED = { yes: "low", partial: "medium", no: "high" } as const;
+
+/** Shows, per sample page, what Claude read, what it answered, and whether its answer passed the guardrail. */
+function WhyPanel({ f, evidence }: { f: Finding; evidence: ClaudeEvidence[] }) {
+  const [i, setI] = useState(0);
+  const e = evidence[Math.min(i, evidence.length - 1)];
+  const a = e.answer;
+  const focus = f.id ?? "";
+  return (
+    <div className="mt-3 rounded-md border border-[var(--line)] bg-[var(--sunken)] text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] px-3 py-2">
+        <span className="text-[var(--muted)]">Claude Haiku read {evidence.length} sample page{evidence.length === 1 ? "" : "s"} of this type. This finding sums up their answers.</span>
+        {evidence.length > 1 && (
+          <div className="flex gap-1">
+            {evidence.map((_, n) => (
+              <button key={n} onClick={() => setI(n)} className={`mono h-6 w-6 rounded ${n === i ? "bg-[var(--panel)] text-[var(--text)]" : "text-[var(--faint)] hover:text-[var(--text)]"}`}>{n + 1}</button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="grid gap-px bg-[var(--line)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="min-w-0 bg-[var(--sunken)] p-3">
+          <div className="mb-1.5 font-medium text-[var(--muted)]">What Claude was shown</div>
+          <a href={e.url} target="_blank" rel="noreferrer" className="mono block truncate text-[var(--faint)] hover:text-[var(--text)]">{e.url}</a>
+          <div className="mt-1.5"><span className="text-[var(--faint)]">Title</span> {e.shown.title ?? "—"}</div>
+          <div className="mt-1 text-[var(--faint)]">
+            {fmt(e.shown.words)} words of visible text · JSON-LD: {e.shown.jsonld_types.length ? e.shown.jsonld_types.join(", ") : "none"}
+          </div>
+          <p className="mt-2 line-clamp-6 whitespace-pre-line break-words text-[var(--muted)]">{e.shown.excerpt}{e.shown.excerpt.length >= 500 ? "…" : ""}</p>
+        </div>
+        <div className="min-w-0 bg-[var(--sunken)] p-3">
+          <div className="mb-1.5 font-medium text-[var(--muted)]">What Claude answered <span className="font-normal text-[var(--faint)]">· “{a.page_type}”</span></div>
+          {(focus.startsWith("facts") || !focus) && (
+            <div className="overflow-x-auto"><table className="w-full">
+              <thead><tr className="text-left text-[var(--faint)]"><th className="font-normal">Key fact</th><th className="font-normal">On page</th><th className="font-normal">In text</th><th className="font-normal">In JSON-LD</th></tr></thead>
+              <tbody>
+                {a.facts.map((x) => (
+                  <tr key={x.name} className="align-top">
+                    <td className="py-0.5 pr-2">{x.name}</td>
+                    <td className="mono max-w-[140px] truncate py-0.5 pr-2 text-[var(--muted)]" title={x.value ?? ""}>{x.value ?? "—"}</td>
+                    <td className="py-0.5" style={{ color: x.in_text ? "var(--good)" : "var(--bad)" }}>{x.in_text ? "yes" : "no"}</td>
+                    <td className="py-0.5" style={{ color: x.in_structured_data ? "var(--good)" : "var(--bad)" }}>{x.in_structured_data ? "yes" : "no"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          )}
+          {focus === "facts_buried" && <p className="mt-2">Key facts in the first ~100 words: <b>{a.facts_up_front ? "yes" : "no"}</b></p>}
+          {focus === "no_verdict" && (
+            <p>Quotable summary sentence: {a.verdict_sentence ? <q className="italic">{a.verdict_sentence}</q> : <b>none found</b>}</p>
+          )}
+          {focus === "title_intent" && (
+            <p>Title fits how people search: <b>{a.title_matches_intent ? "yes" : "no"}</b>{a.better_title_template && <> · suggested <span className="mono">{a.better_title_template}</span></>}</p>
+          )}
+          {a.questions.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {a.questions.map((q) => (
+                <li key={q.question} className="flex items-start gap-2"><span className={`pill sev-${ANSWERED[q.answered]} shrink-0`}>{q.answered}</span><span>{q.question}</span></li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+      <div className="border-t border-[var(--line)] px-3 py-2 text-[var(--muted)]">
+        <span className="font-medium">Guardrail · </span>
+        {e.guardrail
+          ? e.guardrail.passed
+            ? <>Claude quoted <q className="italic">{e.guardrail.quote.slice(0, 140)}{e.guardrail.quote.length > 140 ? "…" : ""}</q> and the quote was found on the page, so it was kept.</>
+            : <span style={{ color: "var(--bad)" }}>Claude quoted <q className="italic">{e.guardrail.quote.slice(0, 140)}</q> but that text isn’t on the page, so the quote was thrown away.</span>
+          : "No quote to check on this page. Answers are structured output (a fixed schema), so a malformed reply is rejected, not guessed at."}
+      </div>
+    </div>
   );
 }
 
