@@ -1,0 +1,30 @@
+name: Deploy API
+
+# After the tests (and eval gate) pass on main, push the api/ folder to the Hugging Face Space,
+# which rebuilds the Docker image. Needs the repo secret HF_TOKEN (a Hugging Face write token).
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  SPACE: jaylahoti/seogeo-audit-kit-api
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - name: Push api/ to the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          test -n "$HF_TOKEN" || { echo "::error::Add the HF_TOKEN repository secret first"; exit 1; }
+          git subtree split --prefix api -b space
+          git push --force "https://jaylahoti:${HF_TOKEN}@huggingface.co/spaces/${SPACE}" space:main

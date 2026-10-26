@@ -9,6 +9,7 @@ export function AuditForm() {
   const [url, setUrl] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [waking, setWaking] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,11 +25,12 @@ export function AuditForm() {
     setBusy(true);
     setErr("");
     try {
-      const { id } = await createAudit(value);
+      const { id } = await createAudit(value, () => setWaking(true));
       router.push(`/run?id=${encodeURIComponent(id)}&url=${encodeURIComponent(value)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't start the audit.");
       setBusy(false);
+      setWaking(false);
     }
   }
 
@@ -45,6 +47,7 @@ export function AuditForm() {
         />
         <button className="btn btn-primary h-10 px-4" disabled={busy}>{busy ? "Starting…" : "Run audit"}</button>
       </div>
+      {waking && <p className="mt-2 text-sm text-[var(--muted)]">Waking up the audit server. It sleeps when nobody has used it for a while, so this takes up to a minute…</p>}
       {err && <p className="mt-2 text-sm text-[var(--bad)]">{err}</p>}
       <a href="/report/demo-nestlist" className="mt-2 inline-block text-xs text-[var(--muted)] underline-offset-2 hover:underline">
         Or open a sample report

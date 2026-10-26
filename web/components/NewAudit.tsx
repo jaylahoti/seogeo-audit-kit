@@ -16,8 +16,8 @@ function normalize(raw: string): string | null {
   }
 }
 
-async function start(router: ReturnType<typeof useRouter>, url: string) {
-  const { id } = await createAudit(url);
+async function start(router: ReturnType<typeof useRouter>, url: string, onWaking?: () => void) {
+  const { id } = await createAudit(url, onWaking);
   router.push(`/run?id=${encodeURIComponent(id)}&url=${encodeURIComponent(url)}`);
 }
 
@@ -26,16 +26,17 @@ export function RerunButton({ url }: { url: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [waking, setWaking] = useState(false);
   return (
     <div className="flex flex-col items-end">
       <button
         className="btn btn-primary" disabled={busy}
         onClick={async () => {
           setBusy(true); setErr("");
-          try { await start(router, url); } catch (e) { setErr(e instanceof Error ? e.message : "Couldn't start"); setBusy(false); }
+          try { await start(router, url, () => setWaking(true)); } catch (e) { setErr(e instanceof Error ? e.message : "Couldn't start"); setBusy(false); setWaking(false); }
         }}
       >
-        {busy ? "Starting…" : "Re-run"}
+        {busy ? (waking ? "Waking server…" : "Starting…") : "Re-run"}
       </button>
       {err && <span className="mt-1 text-xs text-[var(--bad)]">{err}</span>}
     </div>
@@ -70,8 +71,9 @@ export function NewAuditButton() {
     if (!value) { setErr("Enter a site like example.com"); return; }
     setBusy(true); setErr("");
     try {
-      await start(router, value);
+      await start(router, value, () => setErr("Waking up the audit server, up to a minute…"));
       setUrl("");
+      setErr("");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't start the audit.");
     } finally {

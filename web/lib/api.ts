@@ -29,17 +29,36 @@ export type ApiAudit = {
   result: Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
 
-export async function createAudit(url: string): Promise<{ id: string }> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_URL}/audits`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
-    });
-  } catch {
-    throw new Error("Couldn't reach the audit API. Is it running on " + API_URL + "?");
+const WAKING = new Set([502, 503, 504]);
+
+/**
+ * fetch() against the API that waits for a sleeping server. The free host stops the API after a
+ * couple of idle days; the first request wakes it, which takes up to a minute. `onWaking` fires once
+ * so the UI can say what's happening instead of looking broken.
+ */
+export async function apiFetch(path: string, init?: RequestInit, onWaking?: () => void): Promise<Response> {
+  const deadline = Date.now() + 120_000;
+  let told = false;
+  for (;;) {
+    try {
+      const res = await fetch(`${API_URL}${path}`, init);
+      // A waking host answers with a gateway error or its own HTML page, not our JSON.
+      if (!WAKING.has(res.status) && !(res.headers.get("content-type") ?? "").includes("text/html")) return res;
+    } catch {
+      /* not reachable yet */
+    }
+    if (Date.now() > deadline) throw new Error("The audit server didn't respond. Please try again in a minute.");
+    if (!told) { told = true; onWaking?.(); }
+    await new Promise((r) => setTimeout(r, 3000));
   }
+}
+
+export async function createAudit(url: string, onWaking?: () => void): Promise<{ id: string }> {
+  const res = await apiFetch("/audits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  }, onWaking);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(typeof body.detail === "string" ? body.detail : `The API returned ${res.status}`);
   rememberAudit({ id: body.id, site: siteOf(url), at: Date.now(), status: "running" });
@@ -47,7 +66,7 @@ export async function createAudit(url: string): Promise<{ id: string }> {
 }
 
 export async function startCount(id: string): Promise<void> {
-  const res = await fetch(`${API_URL}/audits/${encodeURIComponent(id)}/count`, { method: "POST" });
+  const res = await apiFetch(`/audits/${encodeURIComponent(id)}/count`, { method: "POST" });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(typeof body.detail === "string" ? body.detail : `The API returned ${res.status}`);
@@ -55,12 +74,7 @@ export async function startCount(id: string): Promise<void> {
 }
 
 async function postLogs(path: string, body?: Blob): Promise<void> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_URL}${path}`, { method: "POST", body, headers: body ? { "Content-Type": "application/octet-stream" } : undefined });
-  } catch {
-    throw new Error("Couldn't reach the audit API.");
-  }
+  const res = await apiFetch(path, { method: "POST", body, headers: body ? { "Content-Type": "application/octet-stream" } : undefined });
   if (!res.ok) {
     const b = await res.json().catch(() => ({}));
     throw new Error(typeof b.detail === "string" ? b.detail : `The API returned ${res.status}`);
@@ -71,8 +85,8 @@ async function postLogs(path: string, body?: Blob): Promise<void> {
 export const uploadLogs = (id: string, file: Blob) => postLogs(`/audits/${encodeURIComponent(id)}/logs`, file);
 export const sampleLogs = (id: string) => postLogs(`/audits/${encodeURIComponent(id)}/logs/sample`);
 
-export async function getAudit(id: string): Promise<ApiAudit | null> {
-  const res = await fetch(`${API_URL}/audits/${encodeURIComponent(id)}`, { cache: "no-store" });
+export async function getAudit(id: string, onWaking?: () => void): Promise<ApiAudit | null> {
+  const res = await apiFetch(`/audits/${encodeURIComponent(id)}`, { cache: "no-store" }, onWaking);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`The API returned ${res.status}`);
   return res.json();

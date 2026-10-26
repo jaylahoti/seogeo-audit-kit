@@ -64,6 +64,14 @@ monitors_table = Table(
 )
 
 
+def _driver_url(url: str) -> str:
+    """Hosted Postgres (Neon, Supabase, Railway) hands out postgres:// URLs; use the psycopg 3 driver for them."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def host_of(url: str) -> str:
     return (urlsplit(url).hostname or "").lower().removeprefix("www.")
 
@@ -110,7 +118,7 @@ class AuditRecord:
 class Store:
     def __init__(self, url: str | None = None) -> None:
         self._live: dict[str, AuditRecord] = {}
-        self.engine = create_engine(url or settings.database_url, future=True)
+        self.engine = create_engine(_driver_url(url or settings.database_url), future=True)
         metadata.create_all(self.engine)
         # Audits that were mid-run when the process stopped can't resume.
         with self.engine.begin() as conn:
