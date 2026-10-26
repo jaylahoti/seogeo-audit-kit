@@ -76,7 +76,9 @@ Status key: ✅ built · 🟡 in progress · 🔜 coming soon · ⬜ not started
 - ✅ Module 5 — other engines with your own keys: ChatGPT (Responses API + web search), Perplexity (Sonar), Gemini (Google Search grounding); same questions, pooled score, per-engine rows. Parsers tested on recorded response shapes; not yet run against live keys
 - ✅ Module 6 — AI crawler analytics: upload an access log (nginx/Apache combined, Vercel or Cloudflare JSON, plain or .gz, ≤50 MB) → bots × page types, errors, llms.txt fetches, AI coverage per page type; Google/Bing/Apple verified by forward-confirmed reverse DNS; only totals are stored; "Try a synthetic log" for demos
 - ✅ Evals: 3 generated sites with known answers → page-type ARI (vs URL-only baseline), page-count error, rule-check precision/recall, heuristic vs Claude (accuracy, Cohen's κ); gate in the test suite; CI workflow runs it on every push
-- ⬜ Deploy: Vercel (web) + Railway/Fly (API + worker)
+- ✅ Public-demo limits: 3 audits per visitor per day (salted IP hash), daily Claude budget (audits fall back to no-Claude), localhost exempt
+- ✅ Docker: API and web Dockerfiles; `docker compose up` runs API + web + Postgres
+- ⬜ Deploy: Vercel (web) + Railway/Fly (API)
 
 ## Bring your own key (self-hosted)
 The hosted demo uses only Claude and free APIs. Features that need paid third-party keys are

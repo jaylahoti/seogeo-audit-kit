@@ -24,6 +24,7 @@ from sqlalchemy import (
     Table,
     Text,
     create_engine,
+    func,
     select,
     update,
 )
@@ -41,6 +42,14 @@ audits_table = Table(
     Column("error", Text),
     Column("events", JSON),
     Column("result", JSON),
+)
+# One row per audit, for the public-demo limits: who started it (salted IP hash) and what Claude cost.
+usage_table = Table(
+    "usage", metadata,
+    Column("audit_id", String(32), primary_key=True),
+    Column("visitor", String(32), index=True),
+    Column("created_at", Float, nullable=False, index=True),
+    Column("claude_cost", Float),  # None until the audit finishes
 )
 monitors_table = Table(
     "monitors", metadata,
@@ -110,19 +119,34 @@ class Store:
 
     # --- audits ---------------------------------------------------------------
 
-    def create(self, input_url: str) -> AuditRecord:
+    def create(self, input_url: str, visitor: str | None = None) -> AuditRecord:
         rec = AuditRecord(id=secrets.token_urlsafe(9), input_url=input_url)
         self._live[rec.id] = rec
         with self.engine.begin() as conn:
             conn.execute(audits_table.insert().values(
                 id=rec.id, input_url=input_url, host=host_of(input_url), status=rec.status,
                 created_at=rec.created_at, error=None, events=[], result={}))
+            conn.execute(usage_table.insert().values(audit_id=rec.id, visitor=visitor, created_at=rec.created_at, claude_cost=None))
         return rec
+
+    def audits_since(self, visitor: str, since: float) -> int:
+        with self.engine.connect() as conn:
+            return conn.execute(select(func.count()).select_from(usage_table)
+                                .where(usage_table.c.visitor == visitor, usage_table.c.created_at >= since)).scalar_one()
+
+    def claude_spend_since(self, since: float, reserve_per_running: float) -> float:
+        """Claude cost of finished audits since `since`, plus the worst case for ones still running."""
+        with self.engine.connect() as conn:
+            rows = conn.execute(select(usage_table.c.claude_cost).where(usage_table.c.created_at >= since)).all()
+        return sum(c if c is not None else reserve_per_running for (c,) in rows)
 
     def save(self, rec: AuditRecord) -> None:
         with self.engine.begin() as conn:
             conn.execute(update(audits_table).where(audits_table.c.id == rec.id).values(
                 status=rec.status, error=rec.error, events=rec.events, result=rec.result))
+            if rec.status in ("done", "error"):
+                conn.execute(update(usage_table).where(usage_table.c.audit_id == rec.id).values(
+                    claude_cost=float((rec.result.get("claude") or {}).get("spent") or 0)))
 
     def get(self, audit_id: str) -> AuditRecord | None:
         if audit_id in self._live:

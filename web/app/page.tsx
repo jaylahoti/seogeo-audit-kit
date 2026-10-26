@@ -107,7 +107,7 @@ export default function Home() {
             SEO and GEO audits for programmatic sites: rank on Google and get cited by ChatGPT, Perplexity and Claude — reported per template, so every fix shows how many pages it covers.
           </p>
           <div id="audit" className="mt-8 max-w-xl scroll-mt-24"><AuditForm /></div>
-          <p className="mt-3 text-xs text-[var(--faint)]">3 free audits a day · about $0.20 each, paid by us · no sign-up</p>
+          <p className="mt-3 text-xs text-[var(--faint)]">3 free audits a day · about $0.20 each, paid by us · no sign-up · unlimited when you self-host</p>
         </div>
         <HeroPreview />
       </section>
@@ -220,8 +220,8 @@ export default function Home() {
             <p className="mt-2 text-[var(--muted)]">Catch SEO and GEO regressions in pull requests, run audits from your editor, or host the whole thing yourself.</p>
             <ul className="mt-6 space-y-3 text-sm">
               <li className="flex gap-3"><span className="text-[var(--good)]">✓</span><span><b className="font-medium">GitHub Action</b> — fails the PR when a template's score drops or its schema disappears.</span></li>
-              <li className="flex gap-3"><span className="text-[var(--good)]">✓</span><span><b className="font-medium">MCP server</b> — <span className="mono text-xs">audit_site</span>, <span className="mono text-xs">generate_jsonld</span> and more, in Claude Code or Cursor.</span></li>
-              <li className="flex gap-3"><span className="text-[var(--good)]">✓</span><span><b className="font-medium">Self-host</b> — <span className="mono text-xs">docker compose up</span>: FastAPI, Postgres, Redis, Next.js.</span></li>
+              <li className="flex gap-3"><span className="text-[var(--good)]">✓</span><span><b className="font-medium">MCP server</b> — <span className="mono text-xs">audit_site</span>, <span className="mono text-xs">check_page</span>, <span className="mono text-xs">get_llms_txt</span> and more, in Claude Code or Cursor.</span></li>
+              <li className="flex gap-3"><span className="text-[var(--good)]">✓</span><span><b className="font-medium">Self-host</b> — <span className="mono text-xs">docker compose up</span>: the API, the website and Postgres, with your own keys.</span></li>
             </ul>
             <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="btn mt-6">View on GitHub →</a>
           </div>

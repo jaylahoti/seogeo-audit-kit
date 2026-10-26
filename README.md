@@ -73,6 +73,13 @@ pnpm install
 pnpm dev --port 3001
 ```
 
+Or run everything (API, website, Postgres) with Docker:
+
+```bash
+cp api/.env.example api/.env   # add ANTHROPIC_API_KEY to enable the Claude checks
+docker compose up --build      # then open http://localhost:3001
+```
+
 Run an audit from the command line and stream its stages:
 
 ```bash
@@ -154,6 +161,12 @@ On a 1.35M-page site a full audit cost $0.17 — sending every page through Sonn
 Quotes Claude returns are checked against the page text, and generated JSON-LD must parse and include
 the required properties for its type before it's shown. Without `ANTHROPIC_API_KEY` the audit still runs
 on rules, ML and the headless browser, and the Claude stages are skipped.
+
+**Public-demo limits.** The hosted demo allows 3 audits per visitor per day (`FREE_AUDITS_PER_DAY`) and a
+total Claude budget per 24 hours (`DAILY_BUDGET_USD`, default $5). When the budget is used up, audits still run
+on rules, ML and the browser, and the report says Claude was skipped. Visitors are counted by a salted hash of
+their IP; the IP itself isn't stored. Requests from localhost are never limited, and Docker Compose turns both
+limits off.
 
 Search Console, Bing Webmaster and AI referral traffic are **coming soon**: they need the site owner's own
 accounts, so the hosted demo shows a labelled preview with sample data.

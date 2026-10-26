@@ -320,11 +320,15 @@ async def _pipeline(rec: AuditRecord, client) -> None:
     await asyncio.gather(render_stage(), cwv_stage())
 
     claude = Claude()
+    skipped = rec.result.get("claude_skipped")
+    if skipped:
+        claude.enabled = False
+    why = skipped or "no ANTHROPIC_API_KEY"
     sizes = {x.t.pattern: x.t.estimated_pages for x in state}
 
     async with stage(rec, "claude_pages", "Claude page checks (facts, verdict, title)") as s:
         if not claude.enabled:
-            s["detail"] = "Skipped: no ANTHROPIC_API_KEY (rule heuristics used instead)"
+            s["detail"] = f"Skipped: {why} · rule heuristics used instead"
         else:
             picks = [x for x in big if x.t.pattern not in ("/", "/{static}")][: settings.claude_templates]
             jobs = [(x.t.pattern, f) for x in picks for f in x.samples if f.status == 200]
@@ -381,7 +385,7 @@ async def _pipeline(rec: AuditRecord, client) -> None:
 
     async with stage(rec, "judge", "Judge and write fixes (Claude Sonnet)") as s:
         if not claude.enabled:
-            s["detail"] = "Skipped: no ANTHROPIC_API_KEY"
+            s["detail"] = f"Skipped: {why}"
         else:
             async with live_cost(rec, claude, "judge"):
                 verdict = await judge(claude, rec.result)

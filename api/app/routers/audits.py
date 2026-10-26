@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app import usage
 from app.ingest.count import ExactCount, count_all
 from app.logs.analyze import analyze
 from app.logs.parse import MAX_UPLOAD_BYTES, LogTooLarge, decode
@@ -24,7 +25,7 @@ class AuditIn(BaseModel):
 
 
 @router.post("", status_code=202)
-async def create_audit(body: AuditIn):
+async def create_audit(body: AuditIn, request: Request):
     url = body.url.strip()
     if "://" not in url:
         url = f"https://{url}"  # accept bare domains like "example.com"
@@ -36,12 +37,16 @@ async def create_audit(body: AuditIn):
         raise HTTPException(status_code=422, detail=str(e)) from e
     except FetchError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
-    rec = await start_audit(url)
+    visitor = usage.check_visitor(request)
+    rec = await start_audit(url, visitor=visitor)
     return {"id": rec.id, "status": rec.status}
 
 
-async def start_audit(url: str):
-    rec = store.create(url)
+async def start_audit(url: str, visitor: str | None = None):
+    use_claude = usage.claude_allowed()
+    rec = store.create(url, visitor=visitor)
+    if not use_claude:
+        rec.result["claude_skipped"] = "today's Claude budget for the demo is used up (rules, ML and browser checks still ran)"
     task = asyncio.create_task(run_audit(rec))
     _tasks.add(task)  # keep a reference so the task isn't garbage-collected
     task.add_done_callback(_tasks.discard)

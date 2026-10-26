@@ -10,7 +10,7 @@ import { TemplateDetail } from "@/components/TemplateDetail";
 import { EVAL_SUMMARY } from "@/components/EvalsPanel";
 import { MlLab } from "@/components/MlLab";
 import { GeoCard } from "@/components/GeoCard";
-import { AccessBadge, ModuleHead } from "@/components/ui";
+import { AccessBadge, ModuleHead, SoonBadge } from "@/components/ui";
 import { CommandPalette } from "@/components/CommandPalette";
 import { RerunButton } from "@/components/NewAudit";
 import { useReportRefresh } from "@/components/RefreshContext";
@@ -389,7 +389,7 @@ const MODULE_SUMMARY: Record<string, string> = {
   gaps: "2 question families have no page",
   ci: "GitHub Action + MCP server",
   ml: EVAL_SUMMARY,
-  trace: "$0.11 per audit · 94s",
+  trace: "Cost, models and every step",
 };
 
 function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & { template: string })[]; go: (id: string) => void }) {
@@ -403,6 +403,12 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
 
   return (
     <div className="space-y-8">
+      {audit.live?.claudeSkipped && (
+        <div className="rounded-xl border border-dashed border-[var(--line-strong)] px-4 py-3 text-sm">
+          <span className="font-medium">Claude didn&apos;t run on this audit:</span>{" "}
+          <span className="text-[var(--muted)]">{audit.live.claudeSkipped}. Re-run tomorrow for the Claude checks, or self-host with your own key.</span>
+        </div>
+      )}
       {audit.geo && <GeoCard geo={audit.geo} />}
       {audit.live?.judge && <JudgeCard judge={audit.live.judge} />}
 
@@ -458,9 +464,9 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
             <button key={m.id} onClick={() => go(m.id)} className="card flex items-start justify-between gap-3 p-3 text-left transition hover:border-[var(--line-strong)]">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 text-sm font-medium">{m.label}<span className="text-[var(--faint)] lg:hidden" aria-hidden>›</span></div>
-                <div className="mt-0.5 truncate text-xs text-[var(--muted)]">{liveSummary(audit, m.id) ?? MODULE_SUMMARY[m.id]}</div>
+                <div className="mt-0.5 truncate text-xs text-[var(--muted)]">{COMING_SOON.has(m.id) ? `Coming soon · ${liveSummary(audit, m.id) ? "sample preview" : MODULE_SUMMARY[m.id]}` : liveSummary(audit, m.id) ?? MODULE_SUMMARY[m.id]}</div>
               </div>
-              <AccessBadge access={m.access} />
+              <span className="flex shrink-0 gap-1.5">{COMING_SOON.has(m.id) && <SoonBadge />}<AccessBadge access={m.access} /></span>
             </button>
           ))}
         </div>

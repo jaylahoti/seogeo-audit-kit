@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     page_model: str = "claude-haiku-5-5"  # per-page checks and citation searches
     judge_model: str = "claude-sonnet-5-5"  # one judge-and-fixes call per audit
     max_audit_cost_usd: float = 0.50
+    # Public-demo limits. Requests from this machine (localhost) are never limited.
+    free_audits_per_day: int = 3  # per visitor, rolling 24 hours; 0 = no limit
+    daily_budget_usd: float = 5.0  # Claude spend across all audits, rolling 24 hours; 0 = no cap
+    trust_proxy: bool = False  # read the visitor IP from X-Forwarded-For (set true behind Railway/Fly/nginx)
+    visitor_salt: str = "seogeo"  # visitor IPs are stored only as salted hashes
     render_pages: bool = True  # headless-browser "What AI sees" step (CI can turn it off)
     claude_templates: int = 12  # largest page types that get Claude page checks
     visibility_answers: int = 8  # searched answers to collect for the visibility score

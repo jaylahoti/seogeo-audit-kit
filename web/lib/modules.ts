@@ -245,25 +245,26 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: jaylahoti/seogeo-audit-kit-action@v1
+      - uses: jaylahoti/seogeo-audit-kit/action@main
         with:
-          url: \${{ steps.preview.outputs.url }}/sitemap.xml
-          fail-on: "ai-readiness-drop>5,missing-jsonld"
-          anthropic-api-key: \${{ secrets.ANTHROPIC_API_KEY }}`;
+          url: \${{ steps.deploy.outputs.preview-url }}
+          fail-on: "geo<60,high-issues>0,missing-jsonld"
+          anthropic-api-key: \${{ secrets.ANTHROPIC_API_KEY }}  # optional`;
 
 export const MCP_CONFIG = `{
   "mcpServers": {
     "seogeo-audit-kit": {
       "command": "uvx",
-      "args": ["seogeo-audit-kit-mcp"],
+      "args": ["--from", "git+https://github.com/jaylahoti/seogeo-audit-kit#subdirectory=api", "seogeo-audit-mcp"],
       "env": { "ANTHROPIC_API_KEY": "sk-ant-..." }
     }
   }
 }`;
 
 export const MCP_TOOLS = [
-  ["audit_site", "Run a full audit on a sitemap and return templates, scores and fixes"],
-  ["get_template", "Findings and samples for one template"],
-  ["generate_jsonld", "Validated JSON-LD for a template"],
-  ["check_page", "Run every check on a single URL"],
+  ["audit_site", "Run a full audit on a site or sitemap; returns page types, scores and top fixes"],
+  ["get_report", "The saved report for an audit id"],
+  ["get_page_type", "Findings and ready-to-paste fixes for one page type"],
+  ["check_page", "Run every check on a single URL, in seconds"],
+  ["get_llms_txt", "The generated llms.txt for an audited site"],
 ];

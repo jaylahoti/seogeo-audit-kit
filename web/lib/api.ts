@@ -131,6 +131,7 @@ export function toAudit(a: ApiAudit): Audit {
 
   const live: LiveExtras = {
     crawlerLogs: r.crawler_logs ?? null,
+    claudeSkipped: r.claude_skipped ?? null,
     claudeEnabled: (r.claude?.calls?.length ?? 0) > 0,
     claudeSpent: r.claude?.spent ?? 0,
     claudeBudget: r.claude?.budget ?? 0,

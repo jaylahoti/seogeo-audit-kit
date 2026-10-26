@@ -156,6 +156,7 @@ export type CrawlerLogs = {
 
 export type LiveExtras = {
   crawlerLogs: CrawlerLogs | null;
+  claudeSkipped: string | null; // why Claude didn't run on this audit (e.g. the demo's daily budget)
   claudeEnabled: boolean;
   claudeSpent: number;
   claudeBudget: number;
