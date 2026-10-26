@@ -4,7 +4,7 @@ The SEO + GEO platform for programmatic sites: one tool instead of a crawler, a 
 and an AI-visibility tool — and everything is reported **per template**, so one fix covers
 thousands of pages.
 
-Status key: ✅ built · 🟡 in progress · ⬜ not started
+Status key: ✅ built · 🟡 in progress · 🔜 coming soon · ⬜ not started
 
 ## Stage 1 — Audit (Day 1) ✅
 
@@ -69,13 +69,13 @@ Status key: ✅ built · 🟡 in progress · ⬜ not started
 - ✅ Module 11 — CLI with --fail-on rules, GitHub Action, MCP server (audit_site, get_report, get_page_type, check_page, get_llms_txt)
 
 ## Stage 3 — Connect + track (Day 3)
-- ⬜ Module 2 — Google Search Console (OAuth, read-only): indexed vs submitted and clicks per template, URL Inspection sample
-- ⬜ Module 8 — Bing Webmaster: Bing indexation per template (ChatGPT search relies on Bing)
-- ⬜ Module 9 — AI referral traffic: chatgpt.com / perplexity.ai / gemini / claude visits per template (GA4 or PostHog)
+- 🔜 Module 2 — Google Search Console (OAuth, read-only): indexed vs submitted and clicks per template, URL Inspection sample — **Coming soon** (needs the site owner's account; sample preview shown)
+- 🔜 Module 8 — Bing Webmaster: Bing indexation per template (ChatGPT search relies on Bing) — **Coming soon**
+- 🔜 Module 9 — AI referral traffic: chatgpt.com / perplexity.ai / gemini / claude visits per template (GA4 or PostHog) — **Coming soon**
 - ✅ Module 5 — AI visibility with Claude (questions from page checks, share of voice, competitors cited)
-- ⬜ Module 5 — other engines (ChatGPT / Perplexity / Gemini) with your own keys
-- ⬜ Module 6 — AI crawler analytics: upload or stream access logs → which AI bots crawl which templates, how often, status codes
-- ⬜ Evals: labelled sites, clustering ARI, check precision, judge κ — gate every deploy
+- ✅ Module 5 — other engines with your own keys: ChatGPT (Responses API + web search), Perplexity (Sonar), Gemini (Google Search grounding); same questions, pooled score, per-engine rows. Parsers tested on recorded response shapes; not yet run against live keys
+- ✅ Module 6 — AI crawler analytics: upload an access log (nginx/Apache combined, Vercel or Cloudflare JSON, plain or .gz, ≤50 MB) → bots × page types, errors, llms.txt fetches, AI coverage per page type; Google/Bing/Apple verified by forward-confirmed reverse DNS; only totals are stored; "Try a synthetic log" for demos
+- ✅ Evals: 3 generated sites with known answers → page-type ARI (vs URL-only baseline), page-count error, rule-check precision/recall, heuristic vs Claude (accuracy, Cohen's κ); gate in the test suite; CI workflow runs it on every push
 - ⬜ Deploy: Vercel (web) + Railway/Fly (API + worker)
 
 ## Bring your own key (self-hosted)

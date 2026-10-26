@@ -155,12 +155,56 @@ Quotes Claude returns are checked against the page text, and generated JSON-LD m
 the required properties for its type before it's shown. Without `ANTHROPIC_API_KEY` the audit still runs
 on rules, ML and the headless browser, and the Claude stages are skipped.
 
+Search Console, Bing Webmaster and AI referral traffic are **coming soon**: they need the site owner's own
+accounts, so the hosted demo shows a labelled preview with sample data.
+
 You can see all of this in the app:
 
 - **While it runs:** the progress screen shows Claude's cost so far, per step, against the budget.
 - **Under the hood** (in every report): how many pages reach each step, which model did what with its tokens and cost, and what everything else cost ($0).
 - **Why?** on each Claude finding: what Claude was shown for each sample page, what it answered, and whether its quote passed the on-page check. In one test run, 18 of 57 quoted sentences weren't on the page and were dropped.
 - **/how-it-works:** the pipeline, model routing and guardrails on one public page.
+
+## AI crawlers from your logs
+
+In a report, open **AI crawlers** and upload an access log: nginx/Apache combined format, or JSON lines from a
+Vercel log drain or Cloudflare Logpush (plain or `.gz`, up to 50 MB). You get requests per bot and page type,
+errors served to bots, who fetched `llms.txt`, and the share of each page type that any AI bot fetched.
+Google, Bing and Apple are verified with forward-confirmed reverse DNS, and requests that fail are counted as
+fake and left out. Only the totals are saved; the log is discarded. **Try a synthetic log** shows the analysis
+with invented traffic, clearly labelled.
+
+## Other AI engines (self-hosted)
+
+Set `OPENAI_API_KEY`, `PERPLEXITY_API_KEY` or `GEMINI_API_KEY` and the questions Claude searched are also asked
+to ChatGPT (Responses API with web search), Perplexity (Sonar) and Gemini (Google Search grounding), each
+classified the same way (cited / found / missing). The visibility score pools every engine. Calls are billed to
+those keys; the hosted demo sets none. The response parsers are tested on recorded response shapes, but haven't
+been run against live keys yet.
+
+## Evals
+
+```bash
+cd api
+uv run python -m evals.run            # offline: page types, rule checks, heuristics
+uv run python -m evals.run --claude   # also Claude's page checks (~$0.02 of Haiku)
+```
+
+The pipeline runs on three generated sites (real estate, shop, jobs) where the right answers are known: page
+types (including one URL pattern hiding two layouts and two patterns sharing one), planted bugs, and pages with
+and without a quotable summary. Results go to `web/lib/evals.json` and show in the ML Lab and on /how-it-works.
+
+| Measure | Score |
+|---|---|
+| Page types, adjusted Rand index (1.0 = perfect) | 0.83 (URL patterns alone: 0.82) |
+| Estimated pages per type, mean error | 1.1% |
+| Rule checks, precision / recall | 1.00 / 0.95 |
+| "Is there a quotable summary?" — heuristic vs Claude Haiku (Cohen's κ, same 40 pages) | 0.36 vs 0.80 |
+
+Known misses the evals show: two URL sections sharing one layout stay separate page types, and a bug on only
+some pages of a type can be missed when none of the samples have it. `tests/test_evals.py` fails if the scores
+drop, and CI runs it on every push. The sites are synthetic, so these are a regression gate, not a claim about
+every real site.
 
 ## Saved audits and monitoring
 

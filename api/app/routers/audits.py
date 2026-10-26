@@ -3,11 +3,14 @@ import json
 from dataclasses import asdict
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.ingest.count import ExactCount, count_all
+from app.logs.analyze import analyze
+from app.logs.parse import MAX_UPLOAD_BYTES, LogTooLarge, decode
+from app.logs.sample import synthetic_log
 from app.net.safe_fetch import BlockedURL, FetchError, check_url, make_client, resolve_public
 from app.pipeline.runner import run_audit
 from app.store import store
@@ -114,6 +117,51 @@ async def count_pages(audit_id: str):
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
     return rec.result["exact_count"]
+
+
+def _done_audit(audit_id: str):
+    rec = store.get(audit_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Audit not found")
+    if rec.status != "done":
+        raise HTTPException(status_code=409, detail="The audit hasn't finished yet")
+    return rec
+
+
+@router.post("/{audit_id}/logs")
+async def upload_logs(audit_id: str, request: Request):
+    """Analyze an access log (raw body: plain text or gzip) against this audit's page types.
+    Only the aggregated result is kept; the log itself is discarded."""
+    rec = _done_audit(audit_id)
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail=f"Log is larger than {MAX_UPLOAD_BYTES // 1024 // 1024} MB. Gzip it or send a shorter period.")
+    try:
+        text = decode(bytes(body))
+    except LogTooLarge as e:
+        raise HTTPException(status_code=413, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    result = await analyze(text, rec.result.get("templates", []))
+    if not result["bots"]:
+        detail = "No lines could be read. Use nginx/Apache combined format or JSON lines." if result["unread_lines"] == result["lines"] else "No known bots found in this log."
+        raise HTTPException(status_code=422, detail=detail)
+    rec.result["crawler_logs"] = result
+    store.save(rec)
+    return result
+
+
+@router.post("/{audit_id}/logs/sample")
+async def sample_logs(audit_id: str):
+    """Analyze a synthetic 30-day log built from this site's page types (clearly labelled as synthetic)."""
+    rec = _done_audit(audit_id)
+    templates = rec.result.get("templates", [])
+    result = await analyze(synthetic_log(templates, seed=rec.id), templates, verify=False, synthetic=True)
+    rec.result["crawler_logs"] = result
+    store.save(rec)
+    return result
 
 
 monitors = APIRouter(prefix="/monitors", tags=["monitoring"])

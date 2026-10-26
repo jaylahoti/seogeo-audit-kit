@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Audit } from "@/lib/mock";
 import { fmt } from "@/lib/mock";
+import { EvalsPanel } from "@/components/EvalsPanel";
 
 // Categorical colors for clusters (distinct in light and dark).
 const COLORS = ["#5b5bd6", "#1f9e89", "#d9822b", "#c2407a", "#3b82c4", "#7a8a2e", "#9b59b6", "#c0392b"];
@@ -74,8 +75,9 @@ function LiveLab({ audit }: { audit: Audit }) {
       <div className="grid gap-3 md:grid-cols-3">
         <Explain title="How templates are found" body="URL paths become patterns ({id}, {slug}). Pages are fingerprinted by shallow tag paths and their heading skeleton, compared with MinHash, and clustered with HDBSCAN. URL patterns hiding two layouts are split; sibling patterns sharing one are merged." />
         <Explain title="How sampling works" body="Sitemaps are sampled fairly across every file family and weighted back up. Each template keeps five representative pages: longest, shortest, newest, most unique, and one more." />
-        <Explain title="Evals" body="Clustering accuracy (ARI) and judge agreement (Cohen's κ) are measured on a labelled set of sites. Those numbers appear here once the eval set is built." />
+        <Explain title="How it's checked" body="Below: the same pipeline run on generated sites where the right answer is known, scored for page types, rule checks and Claude's reading." />
       </div>
+      <EvalsPanel />
     </div>
   );
 }
@@ -98,16 +100,9 @@ function SampleLab({ audit }: { audit: Audit }) {
     });
   }, [audit]);
 
-  const m = audit.ml;
-
   return (
     <div className="mt-6 space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Template clustering (ARI)" value={m.ari.toFixed(2)} note={`vs hand labels on ${m.labelledSites} sites`} />
-        <Metric label="Cluster purity" value={`${Math.round(m.purity * 100)}%`} note="pages in the right template" />
-        <Metric label="Judge vs human (Cohen's κ)" value={m.kappa.toFixed(2)} note="substantial agreement" />
-        <Metric label="Judge agreement" value={`${Math.round(m.judgeAgree * 100)}%`} note="on issue severity" />
-      </div>
+      <EvalsPanel />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="card p-4">
@@ -138,7 +133,7 @@ function SampleLab({ audit }: { audit: Audit }) {
       <div className="grid gap-3 md:grid-cols-3">
         <Explain title="How templates are found" body="URL paths become token patterns; HTML becomes tag-path shingles hashed with MinHash. HDBSCAN clusters both, and the results are merged." />
         <Explain title="How sampling works" body="Five pages per template: random, longest, shortest, newest and one outlier — enough to catch template-wide problems at a fraction of the cost." />
-        <Explain title="How the judge is checked" body="On the labelled set, the AI judge's severity ratings are compared with human ratings. Disagreements are reviewed before each release." />
+        <Explain title="How it's checked" body="The scores above come from running the real pipeline on generated sites with known answers. The test suite fails if they drop." />
       </div>
     </div>
   );

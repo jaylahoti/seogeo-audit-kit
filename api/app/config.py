@@ -6,6 +6,13 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
     psi_api_key: str = ""
+    # Optional, self-hosted: citation tracking in other AI engines (billed to these keys).
+    openai_api_key: str = ""
+    perplexity_api_key: str = ""
+    gemini_api_key: str = ""
+    openai_model: str = "gpt-5-mini"
+    perplexity_model: str = "sonar"
+    gemini_model: str = "gemini-2.5-flash"
     # Claude: models per job and a hard cost ceiling per audit (USD).
     page_model: str = "claude-haiku-5-5"  # per-page checks and citation searches
     judge_model: str = "claude-sonnet-5-5"  # one judge-and-fixes call per audit

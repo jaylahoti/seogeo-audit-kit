@@ -114,3 +114,48 @@ def test_geo_weighs_thin_visibility_less():
     none = geo_score({"score": 100}, {"score": 50}, {"score": None})["score"]
     assert full == 80 and none == round((100 * 0.3 + 50 * 0.4) / 0.7)
     assert none < thin < full  # a few answers move the score, but not as much as a full sample
+
+
+# --- other engines (own keys) --------------------------------------------------------------
+
+def test_parse_openai_perplexity_gemini():
+    from app.llm.engines import parse_gemini, parse_openai, parse_perplexity
+
+    o = parse_openai({"output": [
+        {"type": "web_search_call", "action": {"sources": [{"url": "https://a.com/x"}, {"url": "https://b.com/y"}]}},
+        {"type": "message", "content": [{"type": "output_text", "text": "Answer", "annotations": [{"type": "url_citation", "url": "https://b.com/y"}]}]},
+    ]})
+    assert o == {"text": "Answer", "cited_urls": ["https://b.com/y"], "result_urls": ["https://a.com/x", "https://b.com/y"], "searches": 1}
+
+    p = parse_perplexity({"choices": [{"message": {"content": "Hi"}}], "citations": ["https://c.com/"], "search_results": [{"url": "https://c.com/"}, {"url": "https://d.com/"}]})
+    assert p["cited_urls"] == ["https://c.com/"] and len(p["result_urls"]) == 2 and p["searches"] == 1
+
+    g = parse_gemini({"candidates": [{"content": {"parts": [{"text": "G"}]}, "groundingMetadata": {
+        "webSearchQueries": ["q"],
+        "groundingChunks": [{"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc", "title": "e.com"}},
+                            {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/def", "title": "f.org"}}],
+        "groundingSupports": [{"groundingChunkIndices": [1]}]}}]})
+    assert g["cited_urls"] == ["https://f.org/"] and g["result_urls"] == ["https://e.com/", "https://f.org/"] and g["searches"] == 1
+
+
+def test_visibility_pools_other_engines(monkeypatch):
+    import asyncio
+
+    from app.llm import visibility
+
+    class FakeClaude:
+        async def search(self, **kw):
+            return {"text": "t", "cited_urls": ["https://other.com/"], "result_urls": ["https://ex.com/a"], "searches": 1}
+
+    async def fake_ask_all(questions, engines=None):
+        assert len(questions) == 2
+        return {"Perplexity": [{"text": "p", "cited_urls": ["https://ex.com/a"], "result_urls": [], "searches": 1}, {"error": "HTTPError"}]}
+
+    monkeypatch.setattr(visibility.settings, "visibility_answers", 2)
+    monkeypatch.setattr(visibility.other_engines, "ask_all", fake_ask_all)
+    pages = {"/a/{slug}": {"questions": [{"question": "q1"}, {"question": "q2"}]}}
+    v = asyncio.run(visibility.run_visibility(FakeClaude(), "https://ex.com", pages, {"/a/{slug}": 10}))
+    rows = {e["name"]: e for e in v["engines"]}
+    assert rows["Claude"]["asked"] == 2 and rows["Claude"]["found_not_cited"] == 2
+    assert rows["Perplexity"] == {"name": "Perplexity", "cited": 1, "found_not_cited": 0, "asked": 1, "errors": 1, "live": True, "score": 100}
+    assert v["asked"] == 3 and v["cited"] == 1 and v["confidence"] == 1.0

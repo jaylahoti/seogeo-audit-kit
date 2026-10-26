@@ -2,9 +2,9 @@ import Link from "next/link";
 import { AuditForm } from "@/components/AuditForm";
 import { RecentAuditsSection } from "@/components/RecentAudits";
 import { ScoreBadge, ScoreRing, Bar, scoreColor } from "@/components/Score";
-import { AccessBadge, CodeBlock } from "@/components/ui";
+import { AccessBadge, CodeBlock, SoonBadge } from "@/components/ui";
 import { SAMPLE_AUDIT, SAMPLE_REPORTS, fmt } from "@/lib/mock";
-import { GH_ACTION, MODULES, type Access } from "@/lib/modules";
+import { COMING_SOON, GH_ACTION, MODULES, type Access } from "@/lib/modules";
 
 const MODULE_BLURB: Record<string, string> = {
   technical: "Titles, canonicals, duplicates, orphans and sitemap health, per template.",
@@ -39,7 +39,7 @@ const STEPS = [
 const RUNS_WHERE: { access: Access; text: string }[] = [
   { access: "free", text: "Crawling, technical SEO, Core Web Vitals, what AI sees, AI crawler logs, monitoring, CI." },
   { access: "claude", text: "Fact extraction, judging and fixes, question gaps, Claude citation tracking. About $0.20 per audit." },
-  { access: "connect", text: "Your Google Search Console, Bing Webmaster, and GA4 or PostHog. Read-only." },
+  { access: "connect", text: "Your Google Search Console, Bing Webmaster, and GA4 or PostHog, read-only. Coming soon: these need the site owner's own accounts." },
   { access: "key", text: "ChatGPT, Perplexity, Gemini and Copilot citation tracking, when you self-host." },
 ];
 
@@ -144,7 +144,7 @@ export default function Home() {
                   <Link key={m.id} href={`/report/demo-nestlist?m=${m.id}`} className="card group p-4 transition hover:border-[var(--line-strong)]">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-medium">{m.label}</span>
-                      <AccessBadge access={m.access} />
+                      <span className="flex gap-1.5">{COMING_SOON.has(m.id) && <SoonBadge />}<AccessBadge access={m.access} /></span>
                     </div>
                     <p className="mt-1.5 text-sm text-[var(--muted)]">{MODULE_BLURB[m.id]}</p>
                     <span className="mt-3 inline-block text-xs text-[var(--faint)] transition group-hover:text-[var(--text)]">See it in the sample report →</span>

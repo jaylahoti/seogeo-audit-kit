@@ -80,7 +80,6 @@ export type Audit = {
   durationSec: number;
   templates: Template[];
   stages: Stage[];
-  ml: { ari: number; purity: number; kappa: number; judgeAgree: number; labelledSites: number };
   inputUrl?: string; // what the user typed (live audits), used by Re-run
   geo?: GeoScore;
   live?: LiveExtras; // present on real audits from the API
@@ -121,10 +120,11 @@ export type ClaudePage = {
   title_matches_intent: number | null; better_title_template: string | null;
   questions: { question: string; answered: "yes" | "partial" | "no" }[];
 };
-export type VisibilityAnswer = { page_type: string; question: string; status: "cited" | "found" | "missing" | "not_searched"; position: number | null; cited_instead: string[]; answer: string };
+export type VisibilityAnswer = { engine?: string; page_type: string; question: string; status: "cited" | "found" | "missing" | "not_searched"; position: number | null; cited_instead: string[]; answer: string };
 export type Visibility = {
   score: number | null; asked?: number; cited?: number; found_not_cited?: number; reason?: string;
   answers: VisibilityAnswer[]; share_of_voice: { domain: string; share: number; you: boolean }[];
+  engines?: { name: string; cited: number; asked: number; found_not_cited?: number; score?: number | null; errors?: number; live: boolean }[];
 };
 export type Judgement = {
   summary: string;
@@ -139,7 +139,23 @@ export type Monitoring = {
   monitors: { id: string; every_hours: number; next_run_at: number }[];
 };
 
+export type CrawlerBot = {
+  name: string; operator: string; kind: "training" | "ai_search" | "ai_user" | "search"; hits: number;
+  by_page_type: Record<string, number>; status: Record<string, number>; error_rate: number;
+  last_seen: number | null; special: Record<string, number>; verification: string; spoofed: number;
+};
+export type CrawlerLogs = {
+  analyzed_at: number; synthetic: boolean; lines: number; unread_lines: number; asset_requests: number; other_requests: number;
+  from: number | null; to: number | null; ai_hits: number; ai_error_rate: number; llms_txt_fetched_by: string[];
+  bots: CrawlerBot[];
+  page_types: { pattern: string; estimated_pages: number; ai_hits: number; search_hits: number; ai_distinct_pages: number; ai_coverage: number | null }[];
+  top_errors: { bot: string; page_type: string; status: number; count: number; example: string }[];
+  daily: { day: string; ai?: number; search?: number }[];
+  spoofed: number;
+};
+
 export type LiveExtras = {
+  crawlerLogs: CrawlerLogs | null;
   claudeEnabled: boolean;
   claudeSpent: number;
   claudeBudget: number;
@@ -208,7 +224,6 @@ export const SAMPLE_AUDIT: Audit = {
   cost: 0.11,
   naiveCost: 38.4,
   durationSec: 94,
-  ml: { ari: 0.91, purity: 0.94, kappa: 0.78, judgeAgree: 0.86, labelledSites: 20 },
   geo: {
     score: 50,
     partial: false,

@@ -9,7 +9,7 @@ export function Bing() {
   const sum = BING_ROWS.reduce((s, r) => ({ sub: s.sub + r.submitted, bing: s.bing + r.bing }), { sub: 0, bing: 0 });
   return (
     <div>
-      <ModuleHead num={8} access="connect" title="Bing Webmaster" desc="ChatGPT search relies heavily on Bing's index, so a page Bing hasn't indexed rarely shows up in ChatGPT answers. Connect with a free Bing Webmaster API key." />
+      <ModuleHead id="bing" num={8} access="connect" title="Bing Webmaster" desc="ChatGPT search relies heavily on Bing's index, so a page Bing hasn't indexed rarely shows up in ChatGPT answers. Connect with a free Bing Webmaster API key." />
       <Notice tone="connect" title="Connected to Bing Webmaster · nestlist.example">Sample data. In your own install, paste a Bing Webmaster API key in Settings.</Notice>
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="Indexed in Bing" value={`${Math.round((sum.bing / sum.sub) * 100)}%`} color={scoreColor((sum.bing / sum.sub) * 100)} note={`${fmt(sum.bing)} of ${fmt(sum.sub)}`} />
@@ -44,7 +44,7 @@ export function AiTraffic() {
   const maxWeek = Math.max(...weekly.map((w) => w.reduce((a, b) => a + b, 0)));
   return (
     <div>
-      <ModuleHead num={9} access="connect" title="AI referral traffic" desc="Visits that arrive from AI answers (chatgpt.com, perplexity.ai, gemini.google.com, claude.ai, copilot), split by template. Connect GA4 or PostHog, read-only." />
+      <ModuleHead id="traffic" num={9} access="connect" title="AI referral traffic" desc="Visits that arrive from AI answers (chatgpt.com, perplexity.ai, gemini.google.com, claude.ai, copilot), split by template. Connect GA4 or PostHog, read-only." />
       <Notice tone="connect" title="Connected to PostHog · project nestlist-web">Sample data. In your own install, connect GA4 or PostHog in Settings.</Notice>
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="AI visits last week" value={fmt(total)} note={`${growth >= 0 ? "+" : ""}${Math.round(growth * 100)}% vs the week before`} color="var(--good)" />

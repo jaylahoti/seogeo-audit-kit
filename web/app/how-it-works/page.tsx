@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import evals from "@/lib/evals.json";
 
 export const metadata: Metadata = {
   title: "How it works",
@@ -68,7 +69,7 @@ const LIMITS = [
   "It samples pages per page type. A bug that hits one page in a thousand of the same template can be missed.",
   "AI visibility uses Claude's web search. ChatGPT, Perplexity and Gemini need your own keys when you self-host.",
   "Search Console, Bing and AI referral traffic need you to connect your accounts.",
-  "Page types are found without labels, so two near-identical layouts can still be merged. The report shows the clustering so you can check.",
+  "Page types are found without labels. Two URL sections that share one layout (/neighborhood/… and /area/…) stay separate, and two near-identical layouts can be merged. The report shows the clustering so you can check.",
 ];
 
 export default function HowItWorks() {
@@ -148,6 +149,21 @@ export default function HowItWorks() {
       </section>
 
       <section className="border-t border-[var(--line)] bg-[var(--sunken)]">
+        <div className="mx-auto max-w-[1080px] px-4 py-16">
+          <h2 className="text-3xl font-semibold tracking-tight">Measured, not assumed</h2>
+          <p className="mt-2 max-w-2xl text-[var(--muted)]">
+            The pipeline runs on generated sites where the right answer is known ({evals.dataset}). The tests fail if these scores drop.
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="card p-4"><div className="text-xs text-[var(--muted)]">Page types found (ARI)</div><div className="mono mt-1 text-2xl font-semibold">{evals.page_types.ari.toFixed(2)}</div><div className="text-xs text-[var(--faint)]">1.0 = perfect · URLs alone {evals.page_types.ari_url_only.toFixed(2)}</div></div>
+            <div className="card p-4"><div className="text-xs text-[var(--muted)]">Rule checks (F1)</div><div className="mono mt-1 text-2xl font-semibold">{evals.checks.f1.toFixed(2)}</div><div className="text-xs text-[var(--faint)]">precision {evals.checks.precision.toFixed(2)} · recall {evals.checks.recall.toFixed(2)}</div></div>
+            <div className="card p-4"><div className="text-xs text-[var(--muted)]">Quick heuristic vs truth (κ)</div><div className="mono mt-1 text-2xl font-semibold">{(evals.summaries.claude?.heuristic_same_pages ?? evals.summaries.heuristic).verdict.kappa.toFixed(2)}</div><div className="text-xs text-[var(--faint)]">“is there a quotable summary?”</div></div>
+            <div className="card p-4"><div className="text-xs text-[var(--muted)]">Claude vs truth (κ)</div><div className="mono mt-1 text-2xl font-semibold">{evals.summaries.claude ? evals.summaries.claude.verdict.kappa.toFixed(2) : "—"}</div><div className="text-xs text-[var(--faint)]">same question, same pages</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--line)]">
         <div className="mx-auto max-w-[1080px] px-4 py-16">
           <h2 className="text-3xl font-semibold tracking-tight">What it doesn't do</h2>
           <ul className="mt-6 max-w-3xl space-y-3 text-sm text-[var(--muted)]">

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Access } from "@/lib/modules";
-import { ACCESS_LABEL } from "@/lib/modules";
+import { ACCESS_LABEL, COMING_SOON } from "@/lib/modules";
 
 export function AccessBadge({ access }: { access: Access }) {
   const cls =
@@ -13,12 +13,17 @@ export function AccessBadge({ access }: { access: Access }) {
   return <span className={`pill ${cls}`}>{ACCESS_LABEL[access]}</span>;
 }
 
-export function ModuleHead({ title, desc, access, num }: { title: string; desc: string; access: Access; num?: number }) {
+export function SoonBadge() {
+  return <span className="pill border border-dashed border-[var(--line-strong)] text-[var(--muted)]">Coming soon</span>;
+}
+
+export function ModuleHead({ title, desc, access, num, id }: { title: string; desc: string; access: Access; num?: number; id?: string }) {
   return (
     <div className="mb-5">
       <div className="flex flex-wrap items-center gap-2">
         {num && <span className="mono text-xs text-[var(--faint)]">Module {num}</span>}
         <AccessBadge access={access} />
+        {id && COMING_SOON.has(id) && <SoonBadge />}
       </div>
       <h2 className="mt-1 text-xl font-semibold">{title}</h2>
       <p className="mt-1 max-w-3xl text-sm text-[var(--muted)]">{desc}</p>

@@ -23,6 +23,9 @@ export const MODULES: ModuleDef[] = [
   { id: "trace", label: "Under the hood", group: "Lab", access: "free" },
 ];
 
+// Need the visitor's own accounts, so they arrive with self-hosting. Shown with sample data until then.
+export const COMING_SOON = new Set(["gsc", "bing", "traffic"]);
+
 export const ACCESS_LABEL: Record<Access, string> = {
   free: "Free",
   claude: "Claude",

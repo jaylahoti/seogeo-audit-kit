@@ -1,0 +1,204 @@
+{
+  "generated_at": 1793014608.620942,
+  "dataset": "3 synthetic sites, 1315 pages, 14 true page types",
+  "sites": [
+    {
+      "name": "Nestfinder",
+      "pages": 520,
+      "true_types": 6,
+      "found_types": 7,
+      "pages_read": 36,
+      "ari_url_only": 0.748,
+      "ari": 0.787,
+      "count_error": 0.034
+    },
+    {
+      "name": "Gearbox",
+      "pages": 375,
+      "true_types": 4,
+      "found_types": 4,
+      "pages_read": 24,
+      "ari_url_only": 1.0,
+      "ari": 1.0,
+      "count_error": 0.0
+    },
+    {
+      "name": "Hirewell",
+      "pages": 420,
+      "true_types": 4,
+      "found_types": 5,
+      "pages_read": 30,
+      "ari_url_only": 0.756,
+      "ari": 0.756,
+      "count_error": 0.0
+    }
+  ],
+  "page_types": {
+    "ari": 0.833,
+    "ari_url_only": 0.818,
+    "count_error": 0.011
+  },
+  "checks": {
+    "tp": 21,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.955,
+    "f1": 0.977,
+    "per_check": {
+      "canonical_missing": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "title_missing": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "title_duplicate": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "desc_missing": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "h1_missing": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "h1_multiple": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "thin_content": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "img_alt": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 1,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.667
+      },
+      "lang_missing": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "jsonld_missing": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "jsonld_required": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "jsonld_placeholders": {
+        "tp": 1,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "date_modified_missing": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "visible_placeholders": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    }
+  },
+  "summaries": {
+    "heuristic": {
+      "verdict": {
+        "n": 76,
+        "accuracy": 0.592,
+        "kappa": 0.283
+      },
+      "facts_first": {
+        "n": 76,
+        "accuracy": 0.882,
+        "kappa": 0.717
+      }
+    },
+    "claude": {
+      "verdict": {
+        "n": 40,
+        "accuracy": 0.9,
+        "kappa": 0.796
+      },
+      "facts_first": {
+        "n": 40,
+        "accuracy": 0.9,
+        "kappa": 0.794
+      },
+      "heuristic_same_pages": {
+        "verdict": {
+          "n": 40,
+          "accuracy": 0.65,
+          "kappa": 0.364
+        },
+        "facts_first": {
+          "n": 40,
+          "accuracy": 0.9,
+          "kappa": 0.78
+        }
+      },
+      "cost_usd": 0.0193,
+      "calls": 40,
+      "model": "claude-haiku-5-5"
+    }
+  }
+}

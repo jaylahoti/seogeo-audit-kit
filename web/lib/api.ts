@@ -54,6 +54,23 @@ export async function startCount(id: string): Promise<void> {
   }
 }
 
+async function postLogs(path: string, body?: Blob): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { method: "POST", body, headers: body ? { "Content-Type": "application/octet-stream" } : undefined });
+  } catch {
+    throw new Error("Couldn't reach the audit API.");
+  }
+  if (!res.ok) {
+    const b = await res.json().catch(() => ({}));
+    throw new Error(typeof b.detail === "string" ? b.detail : `The API returned ${res.status}`);
+  }
+}
+
+/** Upload an access log (plain or .gz). Only the aggregated result is kept on the server. */
+export const uploadLogs = (id: string, file: Blob) => postLogs(`/audits/${encodeURIComponent(id)}/logs`, file);
+export const sampleLogs = (id: string) => postLogs(`/audits/${encodeURIComponent(id)}/logs/sample`);
+
 export async function getAudit(id: string): Promise<ApiAudit | null> {
   const res = await fetch(`${API_URL}/audits/${encodeURIComponent(id)}`, { cache: "no-store" });
   if (res.status === 404) return null;
@@ -113,6 +130,7 @@ export function toAudit(a: ApiAudit): Audit {
   });
 
   const live: LiveExtras = {
+    crawlerLogs: r.crawler_logs ?? null,
     claudeEnabled: (r.claude?.calls?.length ?? 0) > 0,
     claudeSpent: r.claude?.spent ?? 0,
     claudeBudget: r.claude?.budget ?? 0,
@@ -174,7 +192,6 @@ export function toAudit(a: ApiAudit): Audit {
     durationSec: Math.round(last - first),
     templates,
     stages: stagesDone,
-    ml: { ari: NaN, purity: NaN, kappa: NaN, judgeAgree: NaN, labelledSites: 0 },
     inputUrl: a.input_url,
     geo: r.geo,
     live,

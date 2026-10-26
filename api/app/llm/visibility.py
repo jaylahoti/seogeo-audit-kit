@@ -6,7 +6,8 @@ across the largest page types. Each answer is classified:
   found, not cited  — the site came up in the search results, but the answer used others
   not found
 Visibility = 100 × (cited + 0.25 × found-not-cited) / questions. Other cited domains feed
-share of voice. Question gaps combine these with whether the page itself answers.
+share of voice. With OPENAI / PERPLEXITY / GEMINI keys set (self-hosted), the questions Claude
+searched are asked to those engines too, and the score pools every engine's answers. Question gaps combine these with whether the page itself answers.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from collections import Counter
 from urllib.parse import urlsplit
 
 from app.config import settings
+from app.llm import engines as other_engines
 from app.llm.client import BudgetExceeded, Claude
 
 SYSTEM = (
@@ -43,6 +45,33 @@ def pick_questions(claude_pages: dict[str, dict], sizes: dict[str, int], limit: 
     return picked
 
 
+def classify(site: str, engine: str, pattern: str, q: str, res: dict) -> dict:
+    if not res["searches"] and not res["result_urls"]:
+        # Answered from memory: not a citation test, so it isn't scored.
+        return {"engine": engine, "page_type": pattern, "question": q, "status": "not_searched", "position": None,
+                "cited_instead": [], "answer": res["text"][:600]}
+    cited_hosts = list(dict.fromkeys(host(u) for u in res["cited_urls"]))
+    result_hosts = list(dict.fromkeys(host(u) for u in res["result_urls"]))
+    cited = site in cited_hosts
+    return {
+        "engine": engine,
+        "page_type": pattern,
+        "question": q,
+        "status": "cited" if cited else "found" if site in result_hosts else "missing",
+        "position": cited_hosts.index(site) + 1 if cited else None,
+        "cited_instead": [h for h in cited_hosts if h != site][:4],
+        "answer": res["text"][:600],
+    }
+
+
+def _engine_row(name: str, answers: list[dict], errors: int = 0) -> dict:
+    scored = [a for a in answers if a["status"] != "not_searched"]
+    cited = sum(a["status"] == "cited" for a in scored)
+    found = sum(a["status"] == "found" for a in scored)
+    return {"name": name, "cited": cited, "found_not_cited": found, "asked": len(scored), "errors": errors, "live": True,
+            "score": round(100 * (cited + 0.25 * found) / len(scored)) if scored else None}
+
+
 async def run_visibility(claude: Claude, site_url: str, claude_pages: dict[str, dict], sizes: dict[str, int]) -> dict:
     site = host(site_url)
     target = settings.visibility_answers
@@ -54,23 +83,7 @@ async def run_visibility(claude: Claude, site_url: str, claude_pages: dict[str, 
                                       question=f"Search the web, then answer: {q}", max_uses=1)
         except BudgetExceeded:
             return None
-        if res is None:
-            return None
-        if not res["searches"] and not res["result_urls"]:
-            # Answered from memory: not a citation test, so it isn't scored.
-            return {"page_type": pattern, "question": q, "status": "not_searched", "position": None,
-                    "cited_instead": [], "answer": res["text"][:600]}
-        cited_hosts = list(dict.fromkeys(host(u) for u in res["cited_urls"]))
-        result_hosts = list(dict.fromkeys(host(u) for u in res["result_urls"]))
-        cited = site in cited_hosts
-        return {
-            "page_type": pattern,
-            "question": q,
-            "status": "cited" if cited else "found" if site in result_hosts else "missing",
-            "position": cited_hosts.index(site) + 1 if cited else None,
-            "cited_instead": [h for h in cited_hosts if h != site][:4],
-            "answer": res["text"][:600],
-        }
+        return None if res is None else classify(site, "Claude", pattern, q, res)
 
     # Ask in small batches until enough answers were actually searched.
     everything: list[dict] = []
@@ -79,6 +92,15 @@ async def run_visibility(claude: Claude, site_url: str, claude_pages: dict[str, 
         everything += [a for a in batch if a]
         if sum(a["status"] != "not_searched" for a in everything) >= target or any(a is None for a in batch):
             break
+    claude_answers = [a for a in everything if a["status"] != "not_searched"]
+    engine_rows = [_engine_row("Claude", claude_answers)]
+
+    # Other engines (own keys): the same questions Claude actually searched.
+    asked = [(a["page_type"], a["question"]) for a in claude_answers]
+    for name, results in (await other_engines.ask_all([q for _, q in asked])).items():
+        mine = [classify(site, name, p, q, r) for (p, q), r in zip(asked, results, strict=True) if r and "error" not in r]
+        engine_rows.append(_engine_row(name, mine, errors=sum(1 for r in results if not r or "error" in r)))
+        everything += mine
     answers = [a for a in everything if a["status"] != "not_searched"]
     if not answers:
         return {"score": None, "answers": everything, "share_of_voice": [], "asked": 0, "not_searched": len(everything),
@@ -102,10 +124,10 @@ async def run_visibility(claude: Claude, site_url: str, claude_pages: dict[str, 
         "score": score,
         "asked": len(answers),
         "not_searched": len(everything) - len(answers),
-        "confidence": round(min(1.0, len(answers) / target), 2),  # GEO weighs visibility by this
+        "confidence": round(min(1.0, len(claude_answers) / target), 2),  # GEO weighs visibility by this
         "cited": cited,
         "found_not_cited": found,
-        "engines": [{"name": "Claude", "cited": cited, "asked": len(answers), "live": True}],
+        "engines": engine_rows,
         "answers": answers + [a for a in everything if a["status"] == "not_searched"],
         "share_of_voice": share,
     }

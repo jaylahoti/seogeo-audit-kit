@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { sampleLogs, uploadLogs } from "@/lib/api";
+import { useReportRefresh } from "@/components/RefreshContext";
 import type { Audit } from "@/lib/mock";
 import { fmt } from "@/lib/mock";
 import { ENGINES } from "@/lib/modules";
@@ -16,29 +19,37 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 
 export function AiVisibilityLive({ audit }: { audit: Audit }) {
   const v = audit.live!.visibility!;
+  const byName = Object.fromEntries((v.engines ?? []).map((e) => [e.name, e]));
+  const multi = (v.engines ?? []).filter((e) => e.live).length > 1;
   return (
     <div>
       <ModuleHead num={5} access="claude" title="AI visibility" desc="Real questions about this site's pages, asked to Claude with web search. For each answer: is the site cited, did it come up in the search but get passed over, and who was cited instead." />
       <div className="mb-5 grid gap-2 sm:grid-cols-5">
-        {ENGINES.map((e) => (
-          <div key={e} className={`rounded-lg border px-3 py-2 text-sm ${e === "Claude" ? "border-[var(--accent)]/40 bg-[var(--accent-soft)]" : "border-dashed border-[var(--line-strong)]"}`}>
-            <div className="font-medium">{e}</div>
-            <div className="text-xs text-[var(--muted)]">{e === "Claude" ? `Cited in ${v.cited ?? 0} of ${v.asked ?? 0}` : "Add your API key (self-hosted)"}</div>
-          </div>
-        ))}
+        {ENGINES.map((e) => {
+          const row = byName[e] ?? (e === "Claude" ? { name: e, cited: v.cited ?? 0, asked: v.asked ?? 0, live: true } : undefined);
+          return (
+            <div key={e} className={`rounded-lg border px-3 py-2 text-sm ${row ? "border-[var(--accent)]/40 bg-[var(--accent-soft)]" : "border-dashed border-[var(--line-strong)]"}`}>
+              <div className="font-medium">{e}</div>
+              <div className="text-xs text-[var(--muted)]">
+                {row ? `Cited in ${row.cited} of ${row.asked}${row.errors ? ` · ${row.errors} failed` : ""}` : e === "Copilot" ? "No public API yet" : "Add your API key (self-hosted)"}
+              </div>
+            </div>
+          );
+        })}
       </div>
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="Visibility score" value={v.score != null ? String(v.score) : "—"} color={v.score != null ? scoreColor(v.score) : undefined} note="cited = 1, found but not cited = ¼" />
-        <Stat label="Cited by Claude" value={`${v.cited ?? 0} / ${v.asked ?? 0}`} note={`${v.found_not_cited ?? 0} found in search but not cited`} />
+        <Stat label={multi ? "Cited, all engines" : "Cited by Claude"} value={`${v.cited ?? 0} / ${v.asked ?? 0}`} note={`${v.found_not_cited ?? 0} found in search but not cited`} />
         <Stat label="Share of voice" value={`${Math.round(((v.share_of_voice.find((s) => s.you)?.share) ?? 0) * 100)}%`} note="of citations across these answers" />
       </div>
-      <Table head={["Question", "Page type", "Result", "Cited instead"]} minWidth={760}>
+      <Table head={["Question", ...(multi ? ["Engine"] : []), "Page type", "Result", "Cited instead"]} minWidth={760}>
         {v.answers.map((a) => (
-          <tr key={a.question}>
+          <tr key={(a.engine ?? "Claude") + a.question}>
             <td className={td}>
               <div>{a.question}</div>
-              <details className="mt-1 text-xs text-[var(--faint)]"><summary className="cursor-pointer">Claude's answer</summary><p className="mt-1 whitespace-pre-line text-[var(--muted)]">{a.answer}</p></details>
+              <details className="mt-1 text-xs text-[var(--faint)]"><summary className="cursor-pointer">{a.engine ?? "Claude"}&apos;s answer</summary><p className="mt-1 whitespace-pre-line text-[var(--muted)]">{a.answer}</p></details>
             </td>
+            {multi && <td className={`${td} text-xs`}>{a.engine ?? "Claude"}</td>}
             <td className={`${td} mono text-[11px] text-[var(--muted)]`}>{a.page_type}</td>
             <td className={td}><span className={`pill ${STATUS[a.status].cls}`}>{STATUS[a.status].label}{a.position ? ` · #${a.position}` : ""}</span></td>
             <td className={`${td} text-xs text-[var(--muted)]`}>{a.cited_instead.join(", ") || "—"}</td>
@@ -59,7 +70,7 @@ export function AiVisibilityLive({ audit }: { audit: Audit }) {
           </ul>
         </div>
       )}
-      <p className="mt-3 text-xs text-[var(--faint)]">ChatGPT, Perplexity, Gemini and Copilot use the same questions and metrics when you self-host with their API keys.</p>
+      <p className="mt-3 text-xs text-[var(--faint)]">Self-hosting? Set OPENAI_API_KEY, PERPLEXITY_API_KEY or GEMINI_API_KEY and the same questions go to ChatGPT, Perplexity and Gemini, scored the same way.</p>
     </div>
   );
 }
@@ -147,6 +158,140 @@ export function MonitoringLive({ audit }: { audit: Audit }) {
         </p>
         {!m.monitors.length && <pre className="mono mt-2 overflow-x-auto text-xs text-[var(--muted)]">{`curl -X POST $API/monitors -H 'Content-Type: application/json' \\\n  -d '{"url": "${audit.site}", "every_hours": 168, "webhook_url": "https://hooks.slack.com/…"}'`}</pre>}
       </div>
+    </div>
+  );
+}
+
+const KIND_LABEL: Record<string, string> = { training: "Training", ai_search: "AI search index", ai_user: "Live fetch for a user", search: "Search engine" };
+const day = (t: number | null) => (t ? new Date(t * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
+
+function LogUpload({ id, has }: { id: string; has: boolean }) {
+  const refresh = useReportRefresh();
+  const [busy, setBusy] = useState<"" | "upload" | "sample">("");
+  const [err, setErr] = useState("");
+  async function run(kind: "upload" | "sample", file?: File) {
+    setBusy(kind); setErr("");
+    try {
+      await (kind === "upload" && file ? uploadLogs(id, file) : sampleLogs(id));
+      await refresh();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't read the log.");
+    } finally {
+      setBusy("");
+    }
+  }
+  return (
+    <div className="card mb-5 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{has ? "Analyze another log" : "Upload an access log"}</div>
+          <p className="mt-0.5 text-xs text-[var(--muted)]">
+            nginx or Apache combined format, or JSON lines from a Vercel log drain or Cloudflare Logpush. Plain or .gz, up to 50 MB.
+            Only the totals are kept; the log itself is thrown away.
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <label className={`btn btn-primary cursor-pointer ${busy ? "pointer-events-none opacity-60" : ""}`}>
+            {busy === "upload" ? "Reading…" : "Choose file"}
+            <input type="file" className="sr-only" accept=".log,.txt,.gz,.json,.jsonl,.ndjson" disabled={!!busy}
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) run("upload", f); }} />
+          </label>
+          <button className="btn" disabled={!!busy} onClick={() => run("sample")}>{busy === "sample" ? "Generating…" : "Try a synthetic log"}</button>
+        </div>
+      </div>
+      {err && <p className="mt-2 text-xs text-[var(--bad)]">{err}</p>}
+    </div>
+  );
+}
+
+export function AiCrawlersLive({ audit }: { audit: Audit }) {
+  const L = audit.live!.crawlerLogs;
+  const head = (
+    <ModuleHead num={6} access="free" title="AI crawlers" desc="From your server access logs: which bots crawl which page types, how often, and what errors they hit. Google, Bing and Apple are verified by reverse DNS, so fake bots are left out." />
+  );
+  if (!L) return <div>{head}<LogUpload id={audit.id} has={false} /></div>;
+
+  const ai = L.bots.filter((b) => b.kind !== "search");
+  const search = L.bots.filter((b) => b.kind === "search");
+  const types = L.page_types.filter((p) => p.ai_hits + p.search_hits > 0).slice(0, 6).map((p) => p.pattern);
+  const notSeen = L.page_types.filter((p) => p.pattern !== "other pages" && p.ai_hits === 0 && p.estimated_pages > 0);
+  const maxDay = Math.max(1, ...L.daily.map((d) => (d.ai ?? 0) + (d.search ?? 0)));
+
+  return (
+    <div>
+      {head}
+      {L.synthetic && (
+        <Notice title="Synthetic log — invented traffic, not this site's real crawlers">
+          Paths follow this site&apos;s real page types, but the volumes, IPs and errors are made up so you can see what the analysis shows. Upload a real log for real numbers.
+        </Notice>
+      )}
+      <LogUpload id={audit.id} has />
+      <div className="mb-5 grid gap-3 sm:grid-cols-4">
+        <Stat label="AI bot requests" value={fmt(L.ai_hits)} note={`${day(L.from)} – ${day(L.to)}`} />
+        <Stat label="Errors served to AI bots" value={`${(L.ai_error_rate * 100).toFixed(1)}%`} color={L.ai_error_rate > 0.02 ? "var(--bad)" : undefined} note="4xx and 5xx" />
+        <Stat label="llms.txt fetched by" value={String(L.llms_txt_fetched_by.length)} note={L.llms_txt_fetched_by.slice(0, 3).join(", ") || "no bot yet"} />
+        <Stat label="Fake bots excluded" value={fmt(L.spoofed)} note="claimed Google/Bing/Apple, failed DNS check" />
+      </div>
+
+      <Table head={["Bot", "What it does", ...types.map((t) => t.replace(/\{slug\}/g, "…")), "Errors", "Verified", "Last seen"]} minWidth={900}>
+        {[...ai, ...search].map((b) => (
+          <tr key={b.name}>
+            <td className={`${td} text-xs`}><div className="mono">{b.name}</div><div className="text-[var(--faint)]">{b.operator}</div></td>
+            <td className={`${td} text-xs text-[var(--muted)]`}>{KIND_LABEL[b.kind]}</td>
+            {types.map((t) => { const n = b.by_page_type[t] ?? 0; return <td key={t} className={`${td} mono text-xs ${n ? "" : "text-[var(--faint)]"}`}>{fmt(n)}</td>; })}
+            <td className={`${td} mono text-xs`} style={{ color: b.error_rate > 0.05 ? "var(--bad)" : undefined }}>{b.error_rate ? `${(b.error_rate * 100).toFixed(1)}%` : "—"}</td>
+            <td className={`${td} text-xs text-[var(--muted)]`}>{b.verification}</td>
+            <td className={`${td} text-xs text-[var(--muted)]`}>{day(b.last_seen)}</td>
+          </tr>
+        ))}
+      </Table>
+
+      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <div className="card p-4">
+          <div className="mb-1 text-sm font-medium">Pages of each type fetched by an AI bot</div>
+          <p className="mb-3 text-xs text-[var(--muted)]">Distinct pages fetched successfully in this log, out of the estimated total. Pages no AI bot fetched can&apos;t be quoted from a fresh copy.</p>
+          <ul className="space-y-2">
+            {L.page_types.filter((p) => p.ai_coverage != null).slice(0, 10).map((p) => (
+              <li key={p.pattern} className="grid grid-cols-[minmax(0,1fr)_90px_64px] items-center gap-3">
+                <span className="mono truncate text-xs" title={p.pattern}>{p.pattern}</span>
+                <Bar value={Math.max(p.ai_coverage! * 100, p.ai_coverage ? 1 : 0)} />
+                <span className="mono text-right text-xs">{p.ai_coverage! < 0.01 && p.ai_coverage! > 0 ? "<1%" : `${Math.round(p.ai_coverage! * 100)}%`}</span>
+              </li>
+            ))}
+          </ul>
+          {notSeen.length > 0 && <p className="mt-3 text-xs text-[var(--bad)]">No AI bot fetched any {notSeen.slice(0, 3).map((p) => p.pattern).join(", ")} page{notSeen.length > 3 ? ` (+${notSeen.length - 3} more types)` : ""}.</p>}
+        </div>
+        <div className="card p-4">
+          <div className="mb-3 text-sm font-medium">Errors served to bots</div>
+          {L.top_errors.length === 0 ? <p className="text-sm text-[var(--muted)]">None.</p> : (
+            <ul className="space-y-2 text-xs">
+              {L.top_errors.slice(0, 6).map((e) => (
+                <li key={e.bot + e.page_type + e.status} className="flex items-start justify-between gap-3">
+                  <span className="min-w-0"><span className="mono">{e.bot}</span> got <b>{e.status}</b> on <span className="mono">{e.page_type}</span><span className="mono block truncate text-[var(--faint)]">{e.example}</span></span>
+                  <span className="mono shrink-0">{fmt(e.count)}×</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {L.daily.length > 1 && (
+            <>
+              <div className="mb-2 mt-5 text-sm font-medium">Requests per day <span className="text-xs font-normal text-[var(--faint)]">· AI bots on top, search engines below</span></div>
+              <div className="flex h-20 items-end gap-px" aria-hidden>
+                {L.daily.map((d) => (
+                  <div key={d.day} className="flex flex-1 flex-col justify-end" title={`${d.day}: ${d.ai ?? 0} AI, ${d.search ?? 0} search`}>
+                    <div style={{ height: `${((d.ai ?? 0) / maxDay) * 80}px`, background: "var(--accent)" }} />
+                    <div style={{ height: `${((d.search ?? 0) / maxDay) * 80}px`, background: "var(--line-strong)" }} />
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <p className="mt-4 text-xs text-[var(--faint)]">
+        {fmt(L.lines)} lines read · {fmt(L.unread_lines)} couldn&apos;t be read · {fmt(L.asset_requests)} asset requests and {fmt(L.other_requests)} non-bot requests left out.
+        OpenAI, Anthropic and Perplexity bots are identified by user agent only.
+      </p>
     </div>
   );
 }
