@@ -2,7 +2,7 @@
 FROM python:3.12.7-slim
 
 COPY --from=ghcr.io/astral-sh/uv:0.8.0 /uv /bin/uv
-# Browsers outside /root, so hosts that run the container as a non-root user (Hugging Face Spaces) can use them.
+# Browsers outside /root, so the image also works on hosts that run containers as a non-root user.
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PATH="/app/.venv/bin:$PATH" PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 WORKDIR /app
 

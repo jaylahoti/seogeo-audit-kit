@@ -32,9 +32,9 @@ export type ApiAudit = {
 const WAKING = new Set([502, 503, 504]);
 
 /**
- * fetch() against the API that waits for a sleeping server. The free host stops the API after a
- * couple of idle days; the first request wakes it, which takes up to a minute. `onWaking` fires once
- * so the UI can say what's happening instead of looking broken.
+ * fetch() against the API that waits for a server that's asleep or restarting (free hosts sleep when
+ * idle; any host restarts on deploy). Retries for up to two minutes. `onWaking` fires once so the UI
+ * can say what's happening instead of looking broken.
  */
 export async function apiFetch(path: string, init?: RequestInit, onWaking?: () => void): Promise<Response> {
   const deadline = Date.now() + 120_000;
