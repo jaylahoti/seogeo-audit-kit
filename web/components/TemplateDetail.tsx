@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ClaudeEvidence, Finding, Template } from "@/lib/mock";
 import { fmt } from "@/lib/mock";
+import { usePrintAll } from "@/components/PrintContext";
 
 const TABS = [
   ["ai", "AI readiness"],
@@ -21,13 +22,16 @@ const METHOD_LABEL: Record<string, string> = {
 
 export function TemplateDetail({ t }: { t: Template }) {
   const [tab, setTab] = useState<(typeof TABS)[number][0]>("ai");
-  const findings = t.findings.filter((f) => f.area === tab);
+  const printAll = usePrintAll();
+  const show = (k: (typeof TABS)[number][0]) => printAll || tab === k;
+  const head = (k: (typeof TABS)[number][0]) =>
+    printAll ? <h4 className="mt-5 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{TABS.find(([id]) => id === k)![1]}</h4> : null;
   const hasFacts = t.samples.some((s) => s.factsTotal != null);
   const hasLcp = t.samples.some((s) => s.lcp != null);
 
   return (
     <div className="border-t border-[var(--line)] bg-[var(--panel)] px-4 pb-5 pt-2 md:px-8">
-      <div role="tablist" className="flex gap-5 border-b border-[var(--line)]">
+      <div role="tablist" className={`flex gap-5 border-b border-[var(--line)] ${printAll ? "hidden" : ""}`}>
         {TABS.map(([k, label]) => (
           <button key={k} role="tab" aria-selected={tab === k} className="tab" onClick={() => setTab(k)}>
             {label}
@@ -36,9 +40,10 @@ export function TemplateDetail({ t }: { t: Template }) {
         ))}
       </div>
 
-      {tab === "ai" && (
+      {head("ai")}
+      {show("ai") && (
         <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <FindingList findings={findings} evidence={t.evidence} />
+          <FindingList findings={t.findings.filter((f) => f.area === "ai")} evidence={t.evidence} />
           <div className="space-y-3">
             {t.citation ? (
               <div className="sunken p-3">
@@ -63,9 +68,10 @@ export function TemplateDetail({ t }: { t: Template }) {
         </div>
       )}
 
-      {tab === "seo" && (
+      {head("seo")}
+      {show("seo") && (
         <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-          <FindingList findings={findings} evidence={t.evidence} />
+          <FindingList findings={t.findings.filter((f) => f.area === "seo")} evidence={t.evidence} />
           <div className="space-y-3">
             {t.cwv ? (
               <div className="sunken p-3">
@@ -102,7 +108,8 @@ export function TemplateDetail({ t }: { t: Template }) {
         </div>
       )}
 
-      {tab === "samples" && (
+      {head("samples")}
+      {show("samples") && (
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[620px] text-sm">
             <thead className="text-left text-xs text-[var(--faint)]">

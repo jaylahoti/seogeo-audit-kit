@@ -14,6 +14,7 @@ import { AccessBadge, ModuleHead, SoonBadge } from "@/components/ui";
 import { CommandPalette } from "@/components/CommandPalette";
 import { RerunButton } from "@/components/NewAudit";
 import { useReportRefresh } from "@/components/RefreshContext";
+import { PrintAllContext, usePrintAll } from "@/components/PrintContext";
 import { startCount } from "@/lib/api";
 import { AiReadiness, CoreWebVitals, Fixes, TechnicalSeo, WhatAiSees } from "@/components/modules/Audit";
 import { AiTraffic, Bing } from "@/components/modules/Connect";
@@ -33,6 +34,15 @@ export function Report({ audit }: { audit: Audit }) {
   const prev = idx > 0 ? MODULES[idx - 1] : null;
   const next = idx < MODULES.length - 1 ? MODULES[idx + 1] : null;
   const [copied, setCopied] = useState(false);
+  // Export PDF: render every module (page types expanded), print, then go back to the normal view.
+  const [printAll, setPrintAll] = useState(false);
+  useEffect(() => {
+    if (!printAll) return;
+    const done = () => setPrintAll(false);
+    window.addEventListener("afterprint", done, { once: true });
+    const t = setTimeout(() => window.print(), 300); // let the full report render first
+    return () => { clearTimeout(t); window.removeEventListener("afterprint", done); };
+  }, [printAll]);
 
   const topFixes = useMemo(() => {
     const all: (Finding & { template: string })[] = audit.templates.flatMap((t) =>
@@ -41,7 +51,31 @@ export function Report({ audit }: { audit: Audit }) {
     return all.sort((a, b) => SEV_WEIGHT[b.severity] * b.pages - SEV_WEIGHT[a.severity] * a.pages).slice(0, 5);
   }, [audit]);
 
+  const moduleView = (id: string) => (
+    <>
+          {id === "overview" && <Overview audit={audit} topFixes={topFixes} go={go} />}
+          {id === "technical" && <TechnicalSeo audit={audit} />}
+          {id === "cwv" && <CoreWebVitals audit={audit} />}
+          {id === "ai" && <AiReadiness audit={audit} />}
+          {id === "whatai" && <WhatAiSees audit={audit} />}
+          {id === "fixes" && <Fixes audit={audit} />}
+          {audit.live && SAMPLE_ONLY.has(id) && !hasLive(audit, id) && <SampleBanner id={id} />}
+          {id === "gsc" && <SearchConsole templates={audit.live ? SAMPLE_AUDIT.templates : audit.templates} />}
+          {id === "bing" && <Bing />}
+          {id === "traffic" && <AiTraffic />}
+          {id === "visibility" && (audit.live?.visibility?.answers?.length ? <AiVisibilityLive audit={audit} /> : <AiVisibility />)}
+          {id === "crawlers" && (audit.live ? <AiCrawlersLive audit={audit} /> : <AiCrawlers />)}
+          {id === "monitoring" && (audit.live?.monitoring ? <MonitoringLive audit={audit} /> : <Monitoring />)}
+          {id === "gaps" && (audit.live?.gaps?.length ? <QuestionGapsLive audit={audit} /> : <QuestionGaps />)}
+          {id === "ci" && <CiMcp />}
+          {id === "ml" && <><ModuleHead title="ML Lab" desc="How the template detection and the AI judge are measured." access="free" /><MlLab audit={audit} /></>}
+          {id === "trace" && <><ModuleHead title="Under the hood" desc="What ran on every page, what only saw samples, which Claude model did what, and what it cost." access="free" /><Trace audit={audit} /></>}
+
+    </>
+  );
+
   return (
+    <PrintAllContext.Provider value={printAll}>
     <div className="mx-auto max-w-[1280px] px-4 py-6">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--line)] pb-5">
         <div>
@@ -59,7 +93,7 @@ export function Report({ audit }: { audit: Audit }) {
           >
             {copied ? "Link copied" : "Share"}
           </button>
-          <button className="btn" onClick={() => window.print()}>Export PDF</button>
+          <button className="btn" onClick={() => setPrintAll(true)} disabled={printAll}>{printAll ? "Preparing…" : "Export PDF"}</button>
           {audit.live && audit.inputUrl ? <RerunButton url={audit.inputUrl} /> : <a className="btn btn-primary" href="/#audit">Audit your own site</a>}
         </div>
       </div>
@@ -102,23 +136,11 @@ export function Report({ audit }: { audit: Audit }) {
         </nav>
 
         <main className="min-w-0">
-          {current === "overview" && <Overview audit={audit} topFixes={topFixes} go={go} />}
-          {current === "technical" && <TechnicalSeo audit={audit} />}
-          {current === "cwv" && <CoreWebVitals audit={audit} />}
-          {current === "ai" && <AiReadiness audit={audit} />}
-          {current === "whatai" && <WhatAiSees audit={audit} />}
-          {current === "fixes" && <Fixes audit={audit} />}
-          {audit.live && SAMPLE_ONLY.has(current) && !hasLive(audit, current) && <SampleBanner id={current} />}
-          {current === "gsc" && <SearchConsole templates={audit.live ? SAMPLE_AUDIT.templates : audit.templates} />}
-          {current === "bing" && <Bing />}
-          {current === "traffic" && <AiTraffic />}
-          {current === "visibility" && (audit.live?.visibility?.answers?.length ? <AiVisibilityLive audit={audit} /> : <AiVisibility />)}
-          {current === "crawlers" && (audit.live ? <AiCrawlersLive audit={audit} /> : <AiCrawlers />)}
-          {current === "monitoring" && (audit.live?.monitoring ? <MonitoringLive audit={audit} /> : <Monitoring />)}
-          {current === "gaps" && (audit.live?.gaps?.length ? <QuestionGapsLive audit={audit} /> : <QuestionGaps />)}
-          {current === "ci" && <CiMcp />}
-          {current === "ml" && <><ModuleHead title="ML Lab" desc="How the template detection and the AI judge are measured." access="free" /><MlLab audit={audit} /></>}
-          {current === "trace" && <><ModuleHead title="Under the hood" desc="What ran on every page, what only saw samples, which Claude model did what, and what it cost." access="free" /><Trace audit={audit} /></>}
+          {printAll ? (
+            PRINTABLE.filter((id) => printable(audit, id)).map((id, i) => (
+              <section key={id} className={i ? "mt-10 break-before-page" : ""}>{moduleView(id)}</section>
+            ))
+          ) : moduleView(current)}
 
           {current !== "overview" && (
             <div className="mt-10 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-5 text-sm print:hidden">
@@ -137,7 +159,17 @@ export function Report({ audit }: { audit: Audit }) {
         </main>
       </div>
     </div>
+    </PrintAllContext.Provider>
   );
+}
+
+// Order of modules in the PDF. Coming-soon previews and the generic CI page are left out,
+// and on a live audit so is any module that only has sample data.
+const PRINTABLE = ["overview", "technical", "cwv", "ai", "whatai", "fixes", "visibility", "gaps", "crawlers", "monitoring", "trace", "ml"];
+function printable(audit: Audit, id: string): boolean {
+  if (!audit.live) return true;
+  if (id === "crawlers") return Boolean(audit.live.crawlerLogs);
+  return !SAMPLE_ONLY.has(id) || hasLive(audit, id);
 }
 
 // Modules that need connected accounts, logs, schedules or Claude: real audits show samples for now.
@@ -394,6 +426,7 @@ const MODULE_SUMMARY: Record<string, string> = {
 
 function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & { template: string })[]; go: (id: string) => void }) {
   const [open, setOpen] = useState<string | null>(audit.templates[0]?.id ?? null);
+  const printAll = usePrintAll();
   const sorted = [...audit.templates].sort((a, b) => impact(b) - impact(a));
   const totals = audit.templates.reduce(
     (s, t) => ({ submitted: s.submitted + (t.submitted ?? 0), indexed: s.indexed + (t.indexed ?? 0) }),
@@ -509,7 +542,7 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
                 <span className="hidden text-right md:block"><IssueSummary t={t} /></span>
                 <span className="hidden text-[var(--faint)] md:block">{open === t.id ? "▾" : "▸"}</span>
               </button>
-              {open === t.id && <TemplateDetail t={t} />}
+              {(printAll || open === t.id) && <TemplateDetail t={t} />}
             </div>
           ))}
         </div>
