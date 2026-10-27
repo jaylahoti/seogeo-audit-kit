@@ -1,0 +1,37 @@
+# Fly.io config for the API. Kept cheap on purpose: one small machine that stops when idle.
+# Deploy from this folder:  fly deploy --ha=false
+# Secrets (ANTHROPIC_API_KEY, DATABASE_URL, VISITOR_SALT, PSI_API_KEY) are set with `fly secrets set`, never here.
+
+app = "seogeo-audit-kit-api"
+primary_region = "iad"  # US East, near the Neon database
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8001"
+  TRUST_PROXY = "true"
+  CORS_ORIGINS = "https://seogeo-audit-kit.vercel.app"
+  DAILY_BUDGET_USD = "1"
+  FREE_AUDITS_PER_DAY = "3"
+
+[http_service]
+  internal_port = 8001
+  force_https = true
+  # Stop when nobody's using it, start again on the next request (a few seconds). You pay only while it runs.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "60s"
+
+# One shared CPU and 1 GB: enough for the headless browser. Worst case (running 24/7) is about $5–6 a month.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
