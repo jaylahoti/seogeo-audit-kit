@@ -52,7 +52,7 @@ export function Report({ audit }: { audit: Audit }) {
           <h1 className="mt-2 text-2xl font-semibold">{audit.site}</h1>
           <p className="mono mt-0.5 text-xs text-[var(--muted)]">{audit.sitemap} · {audit.live && audit.live.sitemapSource === "sitemap" && audit.live.exactCount?.status !== "done" && audit.live.pageCount.leavesRead < audit.live.pageCount.leavesTotal ? `~${fmt(audit.urls)} pages (estimated)` : `${fmt(audit.urls)} pages`} · {audit.templates.length} page types</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 print:hidden">
           <button
             className="btn"
             onClick={() => { navigator.clipboard?.writeText(location.href); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
@@ -66,13 +66,13 @@ export function Report({ audit }: { audit: Audit }) {
 
       {/* Mobile: the Overview is the hub; module pages link back to it. */}
       {current !== "overview" && (
-        <button onClick={() => go("overview")} className="mt-4 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--text)] lg:hidden">
+        <button onClick={() => go("overview")} className="mt-4 inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--text)] lg:hidden print:hidden">
           <span aria-hidden>←</span> All modules
         </button>
       )}
 
-      <div className="mt-5 grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <nav aria-label="Report modules" className="hidden lg:block">
+      <div className="mt-5 grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)] print:block">
+        <nav aria-label="Report modules" className="hidden lg:block print:hidden">
           <div className="sticky top-20 space-y-5">
             <CommandPalette go={go} />
             {GROUPS.map((g) => (
@@ -121,7 +121,7 @@ export function Report({ audit }: { audit: Audit }) {
           {current === "trace" && <><ModuleHead title="Under the hood" desc="What ran on every page, what only saw samples, which Claude model did what, and what it cost." access="free" /><Trace audit={audit} /></>}
 
           {current !== "overview" && (
-            <div className="mt-10 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-5 text-sm">
+            <div className="mt-10 grid grid-cols-2 gap-3 border-t border-[var(--line)] pt-5 text-sm print:hidden">
               {prev ? (
                 <button onClick={() => go(prev.id)} className="card p-3 text-left hover:border-[var(--line-strong)]">
                   <div className="text-xs text-[var(--faint)]">← Previous</div><div className="truncate font-medium">{prev.label}</div>
@@ -457,7 +457,7 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
         </section>
       )}
 
-      <section>
+      <section className="print:hidden">
         <h2 className="mb-3 text-sm font-semibold">All modules</h2>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {MODULES.filter((m) => m.id !== "overview").map((m) => (

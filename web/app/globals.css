@@ -83,3 +83,16 @@ body { font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif
 @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .fadein { animation: fadein .3s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .spin, .fadein { animation: none; } }
+
+/* PDF export (Export PDF = print): light theme, report content only, no cards split across pages. */
+@media print {
+  :root:root:root {
+    --bg: #ffffff; --panel: #ffffff; --sunken: #f4f4f6; --line: #e2e2e8; --line-strong: #cfcfd8;
+    --text: #16161d; --muted: #5c5c69; --faint: #8a8a96; --accent: #4b4bc8; --accent-soft: #ededfc;
+    --good: #1f7a50; --good-soft: #e3f4ec; --warn: #95600a; --warn-soft: #fbf0dc; --bad: #b3303a; --bad-soft: #fbe7e8;
+    color-scheme: light;
+  }
+  body { background: #fff !important; }
+  .card, li, tr, pre { break-inside: avoid; }
+  @page { margin: 14mm; }
+}

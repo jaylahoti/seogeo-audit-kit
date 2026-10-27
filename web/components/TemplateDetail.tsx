@@ -170,12 +170,12 @@ function FindingCard({ f, evidence }: { f: Finding; evidence?: ClaudeEvidence[] 
             {f.sampled != null && f.sampled > 1 && <span className="text-[var(--faint)]">{f.affected} of {f.sampled} samples</span>}
             {f.method && <span className="text-[var(--faint)]">{METHOD_LABEL[f.method] ?? f.method}</span>}
             {evidence && evidence.length > 0 && (
-              <button className="text-[var(--accent)] hover:underline" onClick={() => setWhy(!why)} aria-expanded={why}>
+              <button className="text-[var(--accent)] hover:underline print:hidden" onClick={() => setWhy(!why)} aria-expanded={why}>
                 {why ? "Hide why" : "Why?"}
               </button>
             )}
             {f.fix && (
-              <button className="text-[var(--accent)] hover:underline" onClick={() => setShow(!show)}>
+              <button className="text-[var(--accent)] hover:underline print:hidden" onClick={() => setShow(!show)}>
                 {show ? "Hide fix" : `Show fix · ${f.fix.label}`}
               </button>
             )}
@@ -195,7 +195,7 @@ function FindingCard({ f, evidence }: { f: Finding; evidence?: ClaudeEvidence[] 
           <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-1.5 text-xs text-[var(--muted)]">
             <span>{f.fix.kind === "jsonld" ? "JSON-LD · validated against schema.org" : "HTML block"}</span>
             <button
-              className="hover:text-[var(--text)]"
+              className="hover:text-[var(--text)] print:hidden"
               onClick={() => { navigator.clipboard?.writeText(f.fix!.content); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
             >
               {copied ? "Copied" : "Copy"}
