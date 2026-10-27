@@ -101,7 +101,7 @@ export default function Home() {
             <span className="pill sev-low">Open source · MIT</span>
           </div>
           <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight md:text-5xl">
-            Fix 10,000 pages by fixing 6 templates.
+            Get found on Google. Get quoted by AI.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-[var(--muted)]">
             SEO and GEO audits for programmatic sites: rank on Google and get cited by ChatGPT, Perplexity and Claude — reported per template, so every fix shows how many pages it covers.

@@ -31,7 +31,7 @@ export default function OpengraphImage() {
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.1, letterSpacing: -1 }}>Fix 10,000 pages by fixing 6 templates.</div>
+            <div style={{ fontSize: 60, fontWeight: 700, lineHeight: 1.1, letterSpacing: -1 }}>Get found on Google. Get quoted by AI.</div>
             <div style={{ fontSize: 26, color: "#9a9aa8", marginTop: 24 }}>SEO and GEO audits: rank on Google, get cited by AI. Open source.</div>
           </div>
         </div>
