@@ -10,6 +10,7 @@ import { TemplateDetail } from "@/components/TemplateDetail";
 import { EVAL_SUMMARY } from "@/components/EvalsPanel";
 import { MlLab } from "@/components/MlLab";
 import { GeoCard } from "@/components/GeoCard";
+import { IssuesByType, WhereToStart } from "@/components/OverviewCharts";
 import { AccessBadge, ModuleHead, SoonBadge } from "@/components/ui";
 import { CommandPalette } from "@/components/CommandPalette";
 import { RerunButton } from "@/components/NewAudit";
@@ -433,6 +434,11 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
     { submitted: 0, indexed: 0 },
   );
   const siteFindings = audit.live?.siteFindings ?? [];
+  // Clicking a page type in a chart opens it in the table below.
+  const pick = (id: string) => {
+    setOpen(id);
+    setTimeout(() => document.getElementById(`pt-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  };
 
   return (
     <div className="space-y-8">
@@ -474,6 +480,11 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
         </div>
       </div>
 
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+        <WhereToStart templates={audit.templates} onPick={pick} />
+        <IssuesByType templates={audit.templates} onPick={pick} />
+      </div>
+
       {audit.live && <PageCount audit={audit} />}
 
       {siteFindings.length > 0 && (
@@ -492,7 +503,7 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
 
       <section className="print:hidden">
         <h2 className="mb-3 text-sm font-semibold">All modules</h2>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {MODULES.filter((m) => m.id !== "overview").map((m) => (
             <button key={m.id} onClick={() => go(m.id)} className="card flex items-start justify-between gap-3 p-3 text-left transition hover:border-[var(--line-strong)]">
               <div className="min-w-0">
@@ -529,7 +540,7 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
             <span>Page type</span><span className="text-right">Pages</span><span>SEO</span><span>AI readiness</span><span className="text-right">Issues</span><span />
           </div>
           {sorted.map((t) => (
-            <div key={t.id} className="border-b border-[var(--line)] last:border-0">
+            <div key={t.id} id={`pt-${t.id}`} className="scroll-mt-20 border-b border-[var(--line)] last:border-0">
               <button
                 onClick={() => setOpen(open === t.id ? null : t.id)}
                 aria-expanded={open === t.id}
