@@ -1,13 +1,25 @@
 # SEOGEO Audit Kit
 
-**SEO and GEO (AI search) audits for programmatic sites, reported per template.**
+**Get found on Google. Get quoted by AI.** SEO and GEO (AI search) audits for programmatic sites, reported per page type.
+
+**[Try it live →](https://seogeo-audit-kit.vercel.app)** · [Sample report](https://seogeo-audit-kit.vercel.app/report/demo-nestlist) · [How it works](https://seogeo-audit-kit.vercel.app/how-it-works)
+
+![SEOGEO Audit Kit landing page](docs/screenshots/landing.png)
 
 A programmatic site has thousands of pages but only a handful of templates. SEOGEO Audit Kit
 finds the templates behind a sitemap, checks a few representative pages from each, and tells
-you what to fix — with how many pages each fix covers.
+you what to fix — with how many pages each fix covers. A 1.3M-page site costs about **$0.20 of
+Claude** per audit, against ~$14,900 to send every page through an LLM.
 
-> **Status:** work in progress. Full audits run end to end on real sites, including the Claude
-> checks; account connections (Search Console, Bing, analytics) are next. See [`FEATURES.md`](FEATURES.md).
+| Report overview | Where to start |
+|---|---|
+| ![Report overview with GEO score and Claude's summary](docs/screenshots/report.png) | ![Page types by health and size, and issues by page type](docs/screenshots/where-to-start.png) |
+
+![Under the hood: page funnel, model routing and cost](docs/screenshots/under-the-hood.png)
+
+> **Status:** live and open source. Full audits run end to end, including Claude checks, AI
+> visibility, crawler logs and evals in CI. Search Console, Bing and AI referral traffic are coming
+> soon. See [`FEATURES.md`](FEATURES.md).
 
 ## What it does
 
