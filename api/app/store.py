@@ -9,6 +9,7 @@ default (one file, no setup); Postgres in production via DATABASE_URL.
 from __future__ import annotations
 
 import asyncio
+import re
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -65,7 +66,10 @@ monitors_table = Table(
 
 
 def _driver_url(url: str) -> str:
-    """Hosted Postgres (Neon, Supabase, Railway) hands out postgres:// URLs; use the psycopg 3 driver for them."""
+    """Hosted Postgres (Neon, Supabase, Railway) hands out postgres:// URLs; use the psycopg 3 driver for them.
+    Also forgives common copy-paste slips: a pasted `DATABASE_URL="…"` line, quotes, spaces, extra lines."""
+    url = url.strip().splitlines()[0].strip() if url.strip() else url
+    url = re.sub(r"^(export\s+)?DATABASE_URL\s*=\s*", "", url).strip().strip("'\"")
     for prefix in ("postgres://", "postgresql://"):
         if url.startswith(prefix):
             return "postgresql+psycopg://" + url[len(prefix):]
@@ -118,7 +122,11 @@ class AuditRecord:
 class Store:
     def __init__(self, url: str | None = None) -> None:
         self._live: dict[str, AuditRecord] = {}
-        self.engine = create_engine(_driver_url(url or settings.database_url), future=True)
+        db_url = _driver_url(url or settings.database_url)
+        if not re.match(r"^(sqlite|postgresql(\+\w+)?)://", db_url):
+            # Say what's wrong without printing the URL (it contains the password).
+            raise SystemExit("DATABASE_URL isn't a valid database link: it should start with postgresql:// (or sqlite://).")
+        self.engine = create_engine(db_url, future=True)
         metadata.create_all(self.engine)
         # Audits that were mid-run when the process stopped can't resume.
         with self.engine.begin() as conn:
