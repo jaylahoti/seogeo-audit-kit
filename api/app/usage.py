@@ -21,10 +21,15 @@ REPO = "https://github.com/jaylahoti/seogeo-audit-kit"
 
 
 def client_ip(request: Request) -> str:
+    """The visitor's IP. Behind a proxy, the left of X-Forwarded-For is whatever the client sent
+    (spoofable), so use the proxy's own header (Fly) or the entry the proxy appended (the last one)."""
     if settings.trust_proxy:
-        fwd = request.headers.get("x-forwarded-for", "")
+        fly = request.headers.get("fly-client-ip", "").strip()
+        if fly:
+            return fly
+        fwd = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
         if fwd:
-            return fwd.split(",")[0].strip()
+            return fwd[-1]
     return request.client.host if request.client else ""
 
 
