@@ -22,7 +22,7 @@ export function TechnicalSeo({ audit }: { audit: Audit }) {
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="Issues" value={String(TECH_CHECKS.length)} note={`${TECH_CHECKS.filter((c) => c.severity === "high").length} high severity`} />
         <Stat label="Page-level occurrences" value={fmt(pages)} note={`fixed by ${TECH_CHECKS.length} template changes`} />
-        <Stat label="Checks passed everywhere" value={String(TECH_PASSED.length)} note={audit.live ? "on every template's samples" : "of 16 run"} />
+        <Stat label="Checks passed everywhere" value={String(TECH_PASSED.length)} note={audit.live ? "on every template's samples" : "of 24 run"} />
       </div>
       <div className="mb-3 flex flex-wrap gap-1.5">
         {cats.map((c) => (

@@ -38,13 +38,13 @@ export type TechCheck = { check: string; category: string; severity: "high" | "m
 
 export const TECH_CHECKS: TechCheck[] = [
   { check: "Near-duplicate content (>80% similar)", category: "Content", severity: "high", affected: [{ pattern: "/buildings/{slug}", pages: 3940 }] },
-  { check: "Paginated URLs without canonical", category: "Indexability", severity: "medium", affected: [{ pattern: "/buildings/{slug}", pages: 1210 }] },
+  { check: "Missing canonical tag", category: "Indexability", severity: "medium", affected: [{ pattern: "/buildings/{slug}", pages: 1210 }] },
   { check: "Thin content (<150 words)", category: "Content", severity: "medium", affected: [{ pattern: "/landlords/{slug}", pages: 61 }] },
-  { check: "Orphan pages (no internal links)", category: "Linking", severity: "medium", affected: [{ pattern: "/neighborhoods/{slug}", pages: 42 }, { pattern: "/near/{station}-station", pages: 9 }] },
+  { check: "Sitemap URLs returning errors (404)", category: "Sitemap", severity: "medium", affected: [{ pattern: "/neighborhoods/{slug}", pages: 42 }, { pattern: "/near/{station}-station", pages: 9 }] },
   { check: "Title longer than 60 characters", category: "Metadata", severity: "low", affected: [{ pattern: "/buildings/{slug}", pages: 2870 }, { pattern: "/landlords/{slug}", pages: 40 }] },
   { check: "Missing meta description", category: "Metadata", severity: "low", affected: [{ pattern: "/blog/{slug}", pages: 3 }] },
   { check: "Sitemap URLs that redirect", category: "Sitemap", severity: "medium", affected: [{ pattern: "/buildings/{slug}", pages: 188 }] },
-  { check: "Sitemap lastmod older than 90 days", category: "Sitemap", severity: "low", affected: [{ pattern: "/landlords/{slug}", pages: 286 }] },
+  { check: "Sitemap lastmod older than 180 days", category: "Sitemap", severity: "low", affected: [{ pattern: "/landlords/{slug}", pages: 286 }] },
   { check: "Images without alt text", category: "Accessibility", severity: "low", affected: [{ pattern: "/buildings/{slug}", pages: 3940 }] },
   { check: "Link depth more than 4 clicks", category: "Linking", severity: "medium", affected: [{ pattern: "/buildings/{slug}", pages: 2210 }] },
 ];

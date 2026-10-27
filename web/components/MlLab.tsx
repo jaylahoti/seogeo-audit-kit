@@ -108,7 +108,7 @@ function SampleLab({ audit }: { audit: Audit }) {
         <div className="card p-4">
           <div className="mb-1 text-sm font-medium">Template map</div>
           <p className="text-xs text-[var(--muted)]">
-            Each dot is a sampled page, placed by its URL and HTML-structure features (UMAP to 2D). Colors are the clusters HDBSCAN found.
+            Each dot is a crawled page, placed by t-SNE from its structure distance (tag paths + heading skeleton, MinHash). Colors are the layouts HDBSCAN found.
           </p>
           <svg viewBox="0 0 100 100" className="mt-3 aspect-square max-h-[420px] w-full" role="img" aria-label="Scatter plot of sampled pages grouped into template clusters">
             {points.map((p, i) => (
@@ -131,8 +131,8 @@ function SampleLab({ audit }: { audit: Audit }) {
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <Explain title="How templates are found" body="URL paths become token patterns; HTML becomes tag-path shingles hashed with MinHash. HDBSCAN clusters both, and the results are merged." />
-        <Explain title="How sampling works" body="Five pages per template: random, longest, shortest, newest and one outlier — enough to catch template-wide problems at a fraction of the cost." />
+        <Explain title="How templates are found" body="URL paths become patterns ({id}, {slug}). Pages are fingerprinted by shallow tag paths and their heading skeleton, compared with MinHash, and clustered with HDBSCAN. URL patterns hiding two layouts are split; sibling patterns sharing one are merged." />
+        <Explain title="How sampling works" body="Sitemaps are sampled fairly across every file family and weighted back up. Each template keeps five representative pages: longest, shortest, newest, most unique, and one more." />
         <Explain title="How it's checked" body="The scores above come from running the real pipeline on generated sites with known answers. The test suite fails if they drop." />
       </div>
     </div>

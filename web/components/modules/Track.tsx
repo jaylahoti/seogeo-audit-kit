@@ -14,22 +14,22 @@ export function AiVisibility() {
   const cited = cells.filter((c) => c!.cited).length;
   return (
     <div>
-      <ModuleHead num={5} access="claude" title="AI visibility" desc="A fixed set of real questions, asked on a schedule. For each answer: is the site cited, where, and who is cited instead. Claude runs on the hosted demo; other engines use your own API keys." />
+      <ModuleHead num={5} access="claude" title="AI visibility" desc="Real questions about the site's page types, asked to AI engines with web search. For each answer: is the site cited, where, and who is cited instead. Claude runs on the hosted demo; ChatGPT, Perplexity and Gemini use your own API keys." />
       <div className="mb-5 grid gap-2 sm:grid-cols-5">
         {ENGINES.map((e) => (
           <div key={e} className={`rounded-lg border px-3 py-2 text-sm ${VIS_ENGINES_LIVE[e] ? "border-[var(--accent)]/40 bg-[var(--accent-soft)]" : "border-dashed border-[var(--line-strong)]"}`}>
             <div className="font-medium">{e}</div>
-            <div className="text-xs text-[var(--muted)]">{VIS_ENGINES_LIVE[e] ? "Live on the demo" : "Add your API key"}</div>
+            <div className="text-xs text-[var(--muted)]">{VIS_ENGINES_LIVE[e] ? "Live on the demo" : e === "Copilot" ? "No public API yet" : "Add your API key (self-hosted)"}</div>
           </div>
         ))}
       </div>
-      <Notice tone="key" title="ChatGPT, Perplexity, Gemini and Copilot columns are sample data">
+      <Notice tone="key" title="ChatGPT, Perplexity and Gemini columns are sample data">
         SEOGEO Audit Kit is open source. Self-host it and add <span className="mono">OPENAI_API_KEY</span>, <span className="mono">PERPLEXITY_API_KEY</span> or <span className="mono">GEMINI_API_KEY</span> to track those engines with the same metrics: cited or not, position in the answer, and competitors cited instead.
       </Notice>
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="Cited by Claude" value={`${cited} / ${cells.length}`} note="answers that link the site" />
         <Stat label="Share of voice" value="18%" note="of citations in this question set" />
-        <Stat label="Question set" value={`${VIS_QUESTIONS.length} questions`} note="runs weekly · about $0.06 per run" />
+        <Stat label="Question set" value={`${VIS_QUESTIONS.length} questions`} note="asked again on every re-audit · about $0.10 per run" />
       </div>
       <Table head={["Question", ...ENGINES, "Cited instead"]} minWidth={900}>
         {VIS_QUESTIONS.map((q) => (
@@ -66,8 +66,8 @@ export function AiVisibility() {
 export function AiCrawlers() {
   return (
     <div>
-      <ModuleHead num={6} access="free" title="AI crawlers" desc="From your server access logs: which bots crawl which templates, how often, and what errors they hit. Upload a log file or stream from Vercel, Cloudflare or nginx." />
-      <Notice title="Sample: 30 days of logs (Vercel log drain)">Bots are identified by user agent and verified by reverse DNS where the operator publishes IP ranges, so spoofed bots are excluded.</Notice>
+      <ModuleHead num={6} access="free" title="AI crawlers" desc="From your server access logs: which bots crawl which page types, how often, and what errors they hit. Upload a log from nginx or Apache, or a Vercel or Cloudflare log export." />
+      <Notice title="Sample: 30 days of logs (Vercel log export)">Bots are identified by user agent. Google, Bing and Apple are also verified by reverse DNS, so fake ones are left out.</Notice>
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <Stat label="AI bot requests" value={fmt(CRAWLER_HITS.filter((b) => b.kind !== "search").reduce((s, b) => s + b.hits.reduce((a, c) => a + c, 0), 0))} note="last 30 days" />
         <Stat label="Building pages seen by AI" value="29%" color="var(--bad)" note="71% never fetched by any AI bot" />
@@ -109,7 +109,7 @@ export function Monitoring() {
     <div>
       <ModuleHead num={10} access="free" title="Monitoring" desc="Re-audits on a schedule and compares each template with the last run. When something regresses — schema removed, LCP up, a bot blocked — you get an alert with the pages affected." />
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <Stat label="Schedule" value="Weekly" note="Mondays 09:00 UTC · email + Slack" />
+        <Stat label="Schedule" value="Weekly" note="Mondays 09:00 UTC · Slack webhook" />
         <Stat label="Open alerts" value={String(ALERTS.length)} note="1 high severity" color="var(--bad)" />
         <Stat label="AI readiness trend" value="56 → 48" note="dropped after the Oct 17 deploy" color="var(--bad)" />
       </div>
@@ -147,7 +147,7 @@ export function QuestionGaps() {
     <div>
       <ModuleHead num={13} access="claude" title="Question gaps" desc="Groups the questions people ask about your kind of site, maps each to the template that should answer it, and checks three things: does the page exist, does it answer, and can an AI pull the answer out." />
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <Stat label="Question families" value={String(GAPS.length)} note="from the visibility question set + Search Console queries" />
+        <Stat label="Question families" value={String(GAPS.length)} note="from Claude's page checks and the visibility questions" />
         <Stat label="No page at all" value={String(GAPS.filter((g) => !g.exists).length)} color="var(--bad)" note="new template opportunities" />
         <Stat label="Answer not extractable" value={String(GAPS.filter((g) => g.exists && g.extractable !== "yes").length)} color="var(--warn)" note="page exists, AI can't quote it" />
       </div>

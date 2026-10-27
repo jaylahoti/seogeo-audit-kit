@@ -223,7 +223,7 @@ export default function Home() {
               <li className="flex gap-3"><span className="text-[var(--good)]">✓</span><span><b className="font-medium">MCP server</b> — <span className="mono text-xs">audit_site</span>, <span className="mono text-xs">check_page</span>, <span className="mono text-xs">get_llms_txt</span> and more, in Claude Code or Cursor.</span></li>
               <li className="flex gap-3"><span className="text-[var(--good)]">✓</span><span><b className="font-medium">Self-host</b> — <span className="mono text-xs">docker compose up</span>: the API, the website and Postgres, with your own keys.</span></li>
             </ul>
-            <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="btn mt-6">View on GitHub →</a>
+            <a href="https://github.com/jaylahoti/seogeo-audit-kit" target="_blank" rel="noreferrer" className="btn mt-6">View on GitHub →</a>
           </div>
           <CodeBlock label=".github/workflows/seogeo-audit-kit.yml" code={GH_ACTION} />
         </div>

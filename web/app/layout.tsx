@@ -39,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/#modules" className="hidden hover:text-[var(--text)] sm:inline">Modules</Link>
               <Link href="/how-it-works" className="hidden hover:text-[var(--text)] sm:inline">How it works</Link>
               <Link href="/#samples" className="hover:text-[var(--text)]">Samples</Link>
-              <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="hidden hover:text-[var(--text)] sm:inline">GitHub</a>
+              <a href="https://github.com/jaylahoti/seogeo-audit-kit" target="_blank" rel="noreferrer" className="hidden hover:text-[var(--text)] sm:inline">GitHub</a>
               <NewAuditButton />
               <ThemeToggle />
             </nav>
@@ -48,7 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="flex-1">{children}</div>
         <footer className="border-t border-[var(--line)] print:hidden">
           <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-[var(--faint)]">
-            <span className="flex items-center gap-2"><Wordmark className="opacity-80" /><span>· open source, MIT</span></span>
+            <span className="flex items-center gap-2"><Wordmark className="opacity-80" /><span>· <a href="https://github.com/jaylahoti/seogeo-audit-kit" target="_blank" rel="noreferrer" className="underline-offset-2 hover:text-[var(--text)] hover:underline">open source, MIT</a></span></span>
             <span className="flex gap-4"><Link href="/how-it-works" className="hover:text-[var(--text)]">How it works</Link><span>Built by <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="underline-offset-2 hover:text-[var(--text)] hover:underline">Jay Lahoti</a></span></span>
           </div>
         </footer>

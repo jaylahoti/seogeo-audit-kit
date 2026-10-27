@@ -252,7 +252,7 @@ export const SAMPLE_AUDIT: Audit = {
     { key: "crawl", label: "Crawl sample", detail: "180 pages fetched · robots.txt respected", ms: 21400, cost: 0 },
     { key: "cluster", label: "Detect templates", detail: "HDBSCAN on URL + DOM features → 6 templates", ms: 420, cost: 0 },
     { key: "sample", label: "Pick sample pages", detail: "5 per template · 30 pages", ms: 40, cost: 0 },
-    { key: "seo", label: "SEO checks", detail: "14 rule checks × 30 pages", ms: 1900, cost: 0 },
+    { key: "seo", label: "SEO checks", detail: "24 rule checks × 30 pages", ms: 1900, cost: 0 },
     { key: "cwv", label: "Core Web Vitals", detail: "PageSpeed Insights · 12 pages", ms: 38200, cost: 0 },
     { key: "facts", label: "Fact extraction", detail: "30 pages", ms: 9800, cost: 0.018, tokens: 132000, model: "Haiku 5.5" },
     { key: "cite", label: "Citation check", detail: "18 questions with web search", ms: 12600, cost: 0.004, tokens: 21000, model: "Haiku 5.5" },

@@ -429,10 +429,6 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
   const [open, setOpen] = useState<string | null>(audit.templates[0]?.id ?? null);
   const printAll = usePrintAll();
   const sorted = [...audit.templates].sort((a, b) => impact(b) - impact(a));
-  const totals = audit.templates.reduce(
-    (s, t) => ({ submitted: s.submitted + (t.submitted ?? 0), indexed: s.indexed + (t.indexed ?? 0) }),
-    { submitted: 0, indexed: 0 },
-  );
   const siteFindings = audit.live?.siteFindings ?? [];
   // Clicking a page type in a chart opens it in the table below.
   const pick = (id: string) => {
@@ -462,9 +458,9 @@ function Overview({ audit, topFixes, go }: { audit: Audit; topFixes: (Finding & 
           </div>
         ) : (
           <div className="card p-4">
-            <div className="text-xs text-[var(--muted)]">Indexed (Google)</div>
-            <div className="mt-1 text-2xl font-semibold">{Math.round((totals.indexed / Math.max(1, totals.submitted)) * 100)}%</div>
-            <div className="text-xs text-[var(--faint)]">{fmt(totals.indexed)} of {fmt(totals.submitted)} submitted</div>
+            <div className="text-xs text-[var(--muted)]">Pages in the sitemap</div>
+            <div className="mt-1 text-2xl font-semibold">{fmt(audit.urls)}</div>
+            <div className="text-xs text-[var(--faint)]">Counted from all sitemap files</div>
           </div>
         )}
         <div className="card p-4">
