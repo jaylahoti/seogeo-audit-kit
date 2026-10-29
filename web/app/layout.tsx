@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ThemeToggle, THEME_SCRIPT } from "@/components/ThemeToggle";
 import { Wordmark } from "@/components/Logo";
 import { NewAuditButton } from "@/components/NewAudit";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
@@ -52,6 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="flex gap-4"><Link href="/how-it-works" className="hover:text-[var(--text)]">How it works</Link><span>Built by <a href="https://github.com/jaylahoti" target="_blank" rel="noreferrer" className="underline-offset-2 hover:text-[var(--text)] hover:underline">Jay Lahoti</a></span></span>
           </div>
         </footer>
+        <Analytics />
       </body>
     </html>
   );
