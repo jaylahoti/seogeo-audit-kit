@@ -20,9 +20,9 @@ export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
       <LogoMark size={24} className="text-[var(--text)] [--logo-ink:var(--bg)]" />
-      <span className="text-sm tracking-tight">
+      <span className="whitespace-nowrap text-sm tracking-tight">
         <span className="font-semibold">SEOGEO</span>
-        <span className="text-[var(--muted)]"> Audit Kit</span>
+        <span className="hidden text-[var(--muted)] sm:inline"> Audit Kit</span>
       </span>
     </span>
   );

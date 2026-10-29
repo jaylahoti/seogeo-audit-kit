@@ -30,7 +30,7 @@ export function RunProgress() {
   const finished = done >= stages.length;
 
   return (
-    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-10 lg:grid-cols-[1fr_340px]">
+    <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_340px]">
       <section>
         <p className="text-xs text-[var(--muted)]">Auditing</p>
         <h1 className="mono mt-1 truncate text-lg">{url}</h1>

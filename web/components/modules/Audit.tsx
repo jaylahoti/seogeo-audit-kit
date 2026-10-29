@@ -132,7 +132,7 @@ export function AiReadiness({ audit }: { audit: Audit }) {
         ))}
       </Table>
       {live && <p className="-mt-3 text-xs text-[var(--faint)]">Verdict sentence and facts up front are quick heuristics for now; Claude confirms them on the same samples once the Claude checks are on.</p>}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="card p-4">
           <div className="mb-3 text-sm font-medium">AI crawler policy (robots.txt)</div>
           <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
@@ -200,7 +200,7 @@ export function WhatAiSees({ audit }: { audit: Audit }) {
         <Stat label="Links visible without JS" value={`${d.rawLinks} / ${d.renderedLinks}`} note="AI crawlers follow raw links only" />
         <Stat label="JSON-LD without JS" value={d.jsonldRaw ? "Yes" : "No"} color={d.jsonldRaw ? "var(--good)" : "var(--bad)"} note={d.jsonldRendered && !d.jsonldRaw ? "Injected client-side — invisible to most bots" : "Server-rendered"} />
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="card p-4">
           <div className="mb-2 flex items-center justify-between text-sm font-medium">Raw HTML <span className="pill sev-low">GPTBot · ClaudeBot · PerplexityBot</span></div>
           <div className="space-y-2">
@@ -238,7 +238,7 @@ export function Fixes({ audit }: { audit: Audit }) {
                 <span className="text-xs text-[var(--faint)]">Written by Claude Sonnet{f.jsonld ? " · JSON-LD validated" : ""}</span>
               </div>
               <p className="mt-1 text-sm text-[var(--muted)]">{f.notes}</p>
-              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {f.title_template && <CodeBlock label="Title template" code={f.title_template} />}
                 {f.verdict_html && <CodeBlock label="Verdict sentence · near the top of the page" code={f.verdict_html} />}
                 {f.jsonld && <div className="lg:col-span-2"><CodeBlock label="JSON-LD · validated: parses and has the required properties" code={f.jsonld} /></div>}
@@ -253,7 +253,7 @@ export function Fixes({ audit }: { audit: Audit }) {
           Verdict sentences, title templates and JSON-LD per page type are written by Claude, which didn't run for this audit (no API key or budget reached). The two examples show what they look like.
         </Notice>
       )}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {!(live && audit.live?.judge) && <>
         <div>
           <div className="mb-2 text-sm font-medium">Verdict sentence · /buildings/{"{slug}"}{live && <span className="ml-2 text-xs font-normal text-[var(--faint)]">example</span>}</div>

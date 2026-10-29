@@ -246,7 +246,7 @@ export function AiCrawlersLive({ audit }: { audit: Audit }) {
         ))}
       </Table>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-2">
         <div className="card p-4">
           <div className="mb-1 text-sm font-medium">Pages of each type fetched by an AI bot</div>
           <p className="mb-3 text-xs text-[var(--muted)]">Distinct pages fetched successfully in this log, out of the estimated total. Pages no AI bot fetched can&apos;t be quoted from a fresh copy.</p>

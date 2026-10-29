@@ -83,7 +83,7 @@ export function NewAuditButton() {
 
   return (
     <div ref={box} className="relative">
-      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="btn h-8 px-2.5 text-[13px]">
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} className="btn h-8 whitespace-nowrap px-2.5 text-[13px]">
         <span aria-hidden>+</span> New audit
       </button>
       {open && (

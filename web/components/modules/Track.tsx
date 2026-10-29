@@ -172,7 +172,7 @@ export function CiMcp() {
   return (
     <div className="space-y-6">
       <ModuleHead num={11} access="free" title="CI and MCP" desc="Catch SEO and GEO regressions before they ship, and run audits from your editor." />
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           <div className="text-sm font-medium">GitHub Action</div>
           <CodeBlock label="Fails the PR when a template regresses" code={GH_ACTION} />
